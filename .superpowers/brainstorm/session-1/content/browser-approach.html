@@ -1,0 +1,52 @@
+<h2>How should browser URLs be captured?</h2>
+<p class="subtitle">This is the trickiest part — each approach has real trade-offs</p>
+
+<div class="cards">
+  <div class="card" data-choice="cdp" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d1117;border-radius:8px;padding:14px;height:100px;display:flex;flex-direction:column;justify-content:center;font-family:monospace;font-size:11px;color:#58a6ff;">
+      <div style="color:#8b949e;">Chrome DevTools Protocol</div>
+      <div style="color:#3fb950;margin-top:6px;">ws://localhost:9222/json</div>
+      <div style="color:#e3b341;margin-top:4px;">→ "url": "https://github.com/..."</div>
+    </div>
+    <div class="card-body">
+      <h3>A — CDP (Recommended)</h3>
+      <p>Connect to Chrome/Edge's built-in debug port. Gets <strong>all open tabs, exact URLs</strong>. Requires browser launched with <code>--remote-debugging-port</code> flag — a one-time setup shortcut.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>100% accurate</li><li>All tabs, all windows</li><li>Real-time</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Needs debug shortcut set up once</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="sqlite" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d1117;border-radius:8px;padding:14px;height:100px;display:flex;flex-direction:column;justify-content:center;font-family:monospace;font-size:11px;">
+      <div style="color:#8b949e;">AppData\Local\Google\Chrome\</div>
+      <div style="color:#e3b341;margin-top:4px;">User Data\Default\Sessions\</div>
+      <div style="color:#f85149;margin-top:4px;">⚠ locked while Chrome is open</div>
+    </div>
+    <div class="card-body">
+      <h3>B — Session Files</h3>
+      <p>Read Chrome/Edge's session/history SQLite files directly from disk. No setup needed, but files are <strong>locked while the browser is open</strong> and the format changes between versions.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>No browser config needed</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Files locked while open</li><li>Brittle format</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="accessibility" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d1117;border-radius:8px;padding:14px;height:100px;display:flex;flex-direction:column;justify-content:center;font-family:monospace;font-size:11px;">
+      <div style="color:#8b949e;">UI Automation API</div>
+      <div style="color:#58a6ff;margin-top:4px;">FindElement(AddressBar)</div>
+      <div style="color:#e3b341;margin-top:4px;">→ reads URL from address bar</div>
+    </div>
+    <div class="card-body">
+      <h3>C — UI Automation</h3>
+      <p>Use Windows Accessibility (pywinauto/uiautomation) to read the URL from the browser's address bar. Gets <strong>only the active tab</strong> per window.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>No setup</li><li>Works with any browser</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Active tab only</li><li>Fragile to UI changes</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

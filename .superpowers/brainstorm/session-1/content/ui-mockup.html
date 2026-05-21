@@ -1,0 +1,60 @@
+<h2>Settings Window Mockup</h2>
+<p class="subtitle">The window that opens from the tray icon → "Open Settings"</p>
+
+<div class="mockup" style="max-width:620px;margin:0 auto;">
+  <div class="mockup-header">Screen Setup Saver — Settings</div>
+  <div class="mockup-body" style="padding:0;background:#1e1e2e;">
+
+    <!-- Tab bar -->
+    <div style="display:flex;border-bottom:1px solid #313244;background:#181825;">
+      <div style="padding:10px 20px;font-size:13px;color:#cdd6f4;border-bottom:2px solid #89b4fa;cursor:pointer;">Profiles</div>
+      <div style="padding:10px 20px;font-size:13px;color:#6c7086;cursor:pointer;">Hotkeys</div>
+      <div style="padding:10px 20px;font-size:13px;color:#6c7086;cursor:pointer;">Browser Setup</div>
+    </div>
+
+    <!-- Profiles tab content -->
+    <div style="padding:16px;">
+
+      <!-- Action buttons -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <div style="background:#89b4fa;color:#1e1e2e;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">💾 Save Current</div>
+        <div style="background:#313244;color:#cdd6f4;border-radius:5px;padding:6px 14px;font-size:12px;cursor:pointer;">🔁 Restore Selected</div>
+        <div style="flex:1;"></div>
+        <div style="background:#f38ba8;color:#1e1e2e;border-radius:5px;padding:6px 14px;font-size:12px;cursor:pointer;">🗑 Delete</div>
+      </div>
+
+      <!-- Profile list -->
+      <div style="background:#181825;border:1px solid #313244;border-radius:6px;overflow:hidden;font-size:12px;">
+        <!-- Header -->
+        <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr;padding:7px 12px;background:#11111b;color:#6c7086;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">
+          <span>Name</span><span>Saved</span><span>Windows</span><span>Tabs</span>
+        </div>
+        <!-- Row selected -->
+        <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr;padding:9px 12px;background:#313244;color:#cdd6f4;border-top:1px solid #313244;">
+          <span>🖥 Work Setup</span><span style="color:#a6adc8;">Today 10:32</span><span>6</span><span>14</span>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr;padding:9px 12px;color:#a6adc8;border-top:1px solid #313244;">
+          <span>🎮 Gaming</span><span>Yesterday</span><span>3</span><span>2</span>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr;padding:9px 12px;color:#a6adc8;border-top:1px solid #313244;">
+          <span>🏠 Home Office</span><span>May 19</span><span>4</span><span>8</span>
+        </div>
+      </div>
+
+      <!-- Selected profile detail -->
+      <div style="margin-top:14px;background:#181825;border:1px solid #313244;border-radius:6px;padding:12px;font-size:12px;">
+        <div style="color:#89b4fa;font-weight:600;margin-bottom:8px;">Work Setup — Preview</div>
+        <div style="display:flex;flex-direction:column;gap:4px;color:#a6adc8;">
+          <div>📄 Visual Studio Code · <span style="color:#6c7086;">Monitor 1, maximized</span></div>
+          <div>🌐 Chrome · <span style="color:#6c7086;">Monitor 2 — github.com, docs.python.org +12 more</span></div>
+          <div>📧 Outlook · <span style="color:#6c7086;">Monitor 1, 960×1080 left half</span></div>
+          <div>🔷 Edge · <span style="color:#6c7086;">Monitor 2 — teams.microsoft.com</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:16px;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;font-size:13px;color:#8b949e;max-width:620px;margin-left:auto;margin-right:auto;">
+  <strong style="color:#e6edf3;">Tray right-click menu:</strong> Quick Save → (name prompt) · Restore → submenu of profiles · Open Settings · Exit
+</div>
