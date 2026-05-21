@@ -107,3 +107,42 @@ class TestConfig:
         profiles.save_config(cfg)
         reloaded = profiles.load_config()
         assert reloaded["last_profile"] == "work"
+
+
+class TestPathSafety:
+    def test_traversal_in_load_raises(self, profile_dirs):
+        import profiles
+        with pytest.raises(ValueError, match="Invalid profile name"):
+            profiles.load_profile("../escape")
+
+    def test_traversal_in_save_raises(self, profile_dirs):
+        import profiles
+        with pytest.raises(ValueError, match="Invalid profile name"):
+            profiles.save_profile("../escape", {})
+
+    def test_traversal_in_delete_raises(self, profile_dirs):
+        import profiles
+        with pytest.raises(ValueError, match="Invalid profile name"):
+            profiles.delete_profile("../escape")
+
+    def test_traversal_in_rename_raises(self, profile_dirs):
+        import profiles
+        profiles.save_profile("legit", {})
+        with pytest.raises(ValueError):
+            profiles.rename_profile("legit", "../escape")
+
+
+class TestCorruptFiles:
+    def test_load_corrupt_profile_raises_valueerror(self, profile_dirs):
+        import profiles
+        profiles._ensure_dirs()
+        (profiles.PROFILES_DIR / "bad.json").write_text("not json", encoding="utf-8")
+        with pytest.raises(ValueError, match="invalid JSON"):
+            profiles.load_profile("bad")
+
+    def test_load_corrupt_config_returns_defaults(self, profile_dirs):
+        import profiles
+        profiles._ensure_dirs()
+        profiles.CONFIG_FILE.write_text("not json", encoding="utf-8")
+        cfg = profiles.load_config()
+        assert cfg["hotkey_save"] == "ctrl+alt+s"

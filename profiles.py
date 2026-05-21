@@ -18,6 +18,16 @@ def _ensure_dirs() -> None:
     PROFILES_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _safe_profile_path(name: str) -> Path:
+    """Resolve profile path and guard against directory traversal."""
+    path = (PROFILES_DIR / f"{name}.json").resolve()
+    try:
+        path.relative_to(PROFILES_DIR.resolve())
+    except ValueError:
+        raise ValueError(f"Invalid profile name: {name!r}")
+    return path
+
+
 # ── Profile I/O ──────────────────────────────────────────────────────────────
 
 def list_profiles() -> list[str]:
@@ -27,16 +37,19 @@ def list_profiles() -> list[str]:
 
 
 def load_profile(name: str) -> dict[str, Any]:
-    """Load profile by name. Raises FileNotFoundError if not found."""
-    path = PROFILES_DIR / f"{name}.json"
+    """Load profile by name. Raises FileNotFoundError if not found, ValueError if corrupt."""
+    path = _safe_profile_path(name)
     with path.open("r", encoding="utf-8") as fh:
-        return json.load(fh)
+        try:
+            return json.load(fh)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Profile {name!r} contains invalid JSON: {exc}") from exc
 
 
 def save_profile(name: str, data: dict[str, Any]) -> None:
     """Save (overwrite) profile by name."""
     _ensure_dirs()
-    path = PROFILES_DIR / f"{name}.json"
+    path = _safe_profile_path(name)
     with path.open("w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
     log.info("Saved profile %r → %s", name, path)
@@ -44,15 +57,15 @@ def save_profile(name: str, data: dict[str, Any]) -> None:
 
 def delete_profile(name: str) -> None:
     """Delete a profile. Raises FileNotFoundError if not found."""
-    path = PROFILES_DIR / f"{name}.json"
+    path = _safe_profile_path(name)
     path.unlink()
     log.info("Deleted profile %r", name)
 
 
 def rename_profile(old: str, new: str) -> None:
-    """Rename a profile. Raises FileNotFoundError if old not found, ValueError if new exists."""
-    old_path = PROFILES_DIR / f"{old}.json"
-    new_path = PROFILES_DIR / f"{new}.json"
+    """Rename a profile. Raises FileNotFoundError if old not found, ValueError if new exists or invalid."""
+    old_path = _safe_profile_path(old)
+    new_path = _safe_profile_path(new)
     if new_path.exists():
         raise ValueError(f"Profile {new!r} already exists")
     old_path.rename(new_path)
@@ -71,11 +84,17 @@ _DEFAULTS: dict[str, Any] = {
 
 
 def load_config() -> dict[str, Any]:
-    """Load config, filling in missing keys with defaults."""
+    """Load config, filling in missing keys with defaults. On corrupt file, reset to defaults."""
     _ensure_dirs()
     if CONFIG_FILE.exists():
-        with CONFIG_FILE.open("r", encoding="utf-8") as fh:
-            data = json.load(fh)
+        try:
+            with CONFIG_FILE.open("r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except json.JSONDecodeError:
+            log.warning("Config file is corrupt; resetting to defaults")
+            cfg = dict(_DEFAULTS)
+            save_config(cfg)
+            return cfg
         # Back-fill any missing keys
         updated = False
         for key, val in _DEFAULTS.items():
