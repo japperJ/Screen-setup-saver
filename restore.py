@@ -91,13 +91,41 @@ def _apply_placement(hwnd: int, rect: list[int], state: str) -> None:
 
 # ── Browser tab restoration ───────────────────────────────────────────────────
 
+_BROWSER_EXES = {
+    "chrome": [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+    ],
+    "edge": [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    ],
+}
+
+
+def _find_browser_exe(browser_name: str) -> str | None:
+    """Return the first found executable path for the named browser, or None."""
+    for path in _BROWSER_EXES.get(browser_name, []):
+        if os.path.isfile(path):
+            return path
+    return None
+
+
 def restore_browser_tabs(browser_tabs: dict[str, list[str]]) -> None:
-    """Open saved browser tabs using the system default browser handler."""
+    """Open saved browser tabs in the correct browser."""
     for browser_name, urls in browser_tabs.items():
+        if not urls:
+            continue
+        exe = _find_browser_exe(browser_name)
         for url in urls:
             try:
-                webbrowser.open(url)
-                log.debug("Opened %s tab: %s", browser_name, url)
+                if exe:
+                    subprocess.Popen([exe, url])
+                    log.debug("Opened %s tab via exe: %s", browser_name, url)
+                else:
+                    webbrowser.open(url)
+                    log.debug("Opened %s tab via webbrowser (exe not found): %s", browser_name, url)
             except Exception as exc:
                 log.warning("Failed to open URL %s: %s", url, exc)
 
@@ -128,7 +156,8 @@ def restore_profile(profile: dict[str, Any]) -> None:
         known = set(_find_windows_by_exe(exe))
 
         try:
-            subprocess.Popen([exe])
+            args = entry.get("args") or [exe]
+            subprocess.Popen(args)
             log.info("Launched %s", exe)
         except Exception as exc:
             log.error("Failed to launch %s: %s", exe, exc)

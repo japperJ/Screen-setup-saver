@@ -6,3 +6,5 @@ for mod in [
     "win32gui", "win32process", "win32con", "win32api", "pystray", "keyboard",
 ]:
     sys.modules.setdefault(mod, MagicMock())
+
+sys.modules.setdefault("psutil", MagicMock())

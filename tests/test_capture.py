@@ -80,7 +80,24 @@ class TestGetRect:
         assert rect == [100, 200, 800, 600]
 
 
-class TestCaptureWindows:
+class TestGetCmdline:
+    def test_returns_cmdline(self):
+        import capture
+        import win32con
+        win32con.PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        with patch("capture.win32process.GetWindowThreadProcessId", return_value=(0, 123)), \
+             patch("capture.psutil.Process") as mock_proc:
+            mock_proc.return_value.cmdline.return_value = [r"C:\chrome.exe", "--remote-debugging-port=9222"]
+            result = capture._get_cmdline(1)
+        assert result == [r"C:\chrome.exe", "--remote-debugging-port=9222"]
+
+    def test_returns_empty_on_error(self):
+        import capture
+        with patch("capture.win32process.GetWindowThreadProcessId", side_effect=Exception("error")):
+            result = capture._get_cmdline(1)
+        assert result == []
+
+
     def test_returns_list_of_dicts(self):
         import capture
         import win32con

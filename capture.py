@@ -6,6 +6,7 @@ import logging
 import os
 from typing import Any
 
+import psutil
 import win32api
 import win32con
 import win32gui
@@ -43,6 +44,15 @@ def _is_capturable(hwnd: int) -> bool:
     if cls in _SKIP_CLASSES:
         return False
     return True
+
+
+def _get_cmdline(hwnd: int) -> list[str]:
+    """Return the full command line args for the process owning hwnd, or [] on error."""
+    try:
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        return psutil.Process(pid).cmdline()
+    except Exception:
+        return []
 
 
 def _get_exe(hwnd: int) -> str:
@@ -98,6 +108,7 @@ def capture_windows() -> list[dict[str, Any]]:
             "hwnd": hwnd,
             "title": win32gui.GetWindowText(hwnd),
             "exe": _get_exe(hwnd),
+            "args": _get_cmdline(hwnd),
             "rect": _get_rect(hwnd),
             "state": _get_window_state(hwnd),
         }

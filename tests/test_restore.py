@@ -125,7 +125,8 @@ class TestRestoreBrowserTabs:
             "chrome": ["https://github.com", "https://example.com"],
             "edge": ["https://bing.com"],
         }
-        with patch("restore.webbrowser.open") as mock_open:
+        with patch("restore._find_browser_exe", return_value=None), \
+             patch("restore.webbrowser.open") as mock_open:
             restore.restore_browser_tabs(tabs)
 
         assert mock_open.call_count == 3
@@ -136,7 +137,8 @@ class TestRestoreBrowserTabs:
     def test_handles_open_error_gracefully(self):
         import restore
         tabs = {"chrome": ["https://example.com"]}
-        with patch("restore.webbrowser.open", side_effect=Exception("error")):
+        with patch("restore._find_browser_exe", return_value=None), \
+             patch("restore.webbrowser.open", side_effect=Exception("error")):
             # Should not raise
             restore.restore_browser_tabs(tabs)
 
@@ -147,7 +149,53 @@ class TestRestoreBrowserTabs:
         mock_open.assert_not_called()
 
 
-class TestRestoreProfile:
+class TestFindBrowserExe:
+    def test_returns_path_if_exists(self):
+        import restore
+        with patch("restore.os.path.isfile", return_value=True):
+            result = restore._find_browser_exe("chrome")
+        assert result is not None
+        assert "chrome" in result.lower()
+
+    def test_returns_none_if_not_found(self):
+        import restore
+        with patch("restore.os.path.isfile", return_value=False):
+            result = restore._find_browser_exe("chrome")
+        assert result is None
+
+    def test_unknown_browser_returns_none(self):
+        import restore
+        result = restore._find_browser_exe("firefox")
+        assert result is None
+
+
+class TestRestoreBrowserTabsWithExe:
+    def test_uses_exe_when_found(self):
+        import restore
+        tabs = {"chrome": ["https://github.com"]}
+        with patch("restore._find_browser_exe", return_value=r"C:\chrome.exe"), \
+             patch("restore.subprocess.Popen") as mock_popen:
+            restore.restore_browser_tabs(tabs)
+        mock_popen.assert_called_once_with([r"C:\chrome.exe", "https://github.com"])
+
+    def test_falls_back_to_webbrowser_when_exe_not_found(self):
+        import restore
+        tabs = {"chrome": ["https://github.com"]}
+        with patch("restore._find_browser_exe", return_value=None), \
+             patch("restore.webbrowser.open") as mock_open:
+            restore.restore_browser_tabs(tabs)
+        mock_open.assert_called_once_with("https://github.com")
+
+    def test_skips_empty_url_lists(self):
+        import restore
+        tabs = {"chrome": [], "edge": []}
+        with patch("restore.subprocess.Popen") as mock_popen, \
+             patch("restore.webbrowser.open") as mock_open:
+            restore.restore_browser_tabs(tabs)
+        mock_popen.assert_not_called()
+        mock_open.assert_not_called()
+
+
     def _make_profile(self, exe=r"C:\Windows\notepad.exe"):
         return {
             "windows": [
