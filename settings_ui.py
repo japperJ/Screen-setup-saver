@@ -109,7 +109,7 @@ class SettingsWindow:
         self._refresh_profiles()
 
     def _refresh_profiles(self) -> None:
-        if not hasattr(self, "_profile_list"):
+        if self._win is None or not self._win.winfo_exists():
             return
         self._profile_list.delete(0, "end")
         for name in prof.list_profiles():
@@ -128,7 +128,6 @@ class SettingsWindow:
         if not name or not name.strip():
             return
         name = name.strip()
-        self._on_save()
         # The actual save with the chosen name is handled by on_save via main.py
         # which calls capture + save_profile; we pass name via a different path.
         # Simpler: call save directly here.
@@ -221,12 +220,16 @@ class SettingsWindow:
         if not save_combo or not restore_combo:
             messagebox.showwarning("Invalid", "Both hotkeys must be non-empty.", parent=self._win)
             return
-        cfg = prof.load_config()
-        cfg["hotkey_save"]    = save_combo
-        cfg["hotkey_restore"] = restore_combo
-        prof.save_config(cfg)
-        self._on_hotkeys_change(save_combo, restore_combo)
-        messagebox.showinfo("Saved", "Hotkeys updated.", parent=self._win)
+        try:
+            cfg = prof.load_config()
+            cfg["hotkey_save"]    = save_combo
+            cfg["hotkey_restore"] = restore_combo
+            prof.save_config(cfg)
+            self._on_hotkeys_change(save_combo, restore_combo)
+            messagebox.showinfo("Saved", "Hotkeys updated.", parent=self._win)
+        except Exception as exc:
+            log.error("Failed to save hotkeys: %s", exc)
+            messagebox.showerror("Error", f"Failed to save hotkeys: {exc}", parent=self._win)
 
     # ── Browser Setup tab ─────────────────────────────────────────────────────
 
@@ -252,13 +255,13 @@ class SettingsWindow:
         port_frame.pack(fill="x", padx=12, pady=4)
 
         ttk.Label(port_frame, text="Chrome debug port:").grid(row=0, column=0, sticky="w", pady=4)
-        self._chrome_port_var = tk.IntVar(value=cfg.get("chrome_debug_port", 9222))
+        self._chrome_port_var = tk.StringVar(value=str(cfg.get("chrome_debug_port", 9222)))
         ttk.Entry(port_frame, textvariable=self._chrome_port_var, width=8).grid(
             row=0, column=1, padx=8, sticky="w"
         )
 
         ttk.Label(port_frame, text="Edge debug port:").grid(row=1, column=0, sticky="w", pady=4)
-        self._edge_port_var = tk.IntVar(value=cfg.get("edge_debug_port", 9223))
+        self._edge_port_var = tk.StringVar(value=str(cfg.get("edge_debug_port", 9223)))
         ttk.Entry(port_frame, textvariable=self._edge_port_var, width=8).grid(
             row=1, column=1, padx=8, sticky="w"
         )
@@ -269,7 +272,7 @@ class SettingsWindow:
         try:
             chrome_port = int(self._chrome_port_var.get())
             edge_port   = int(self._edge_port_var.get())
-        except (ValueError, tk.TclError):
+        except ValueError:
             messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
             return
         cfg = prof.load_config()
