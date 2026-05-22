@@ -16,10 +16,11 @@ import win32process
 
 log = logging.getLogger(__name__)
 
-_POLL_INTERVAL = 0.25   # seconds between window-search retries
-_POLL_TIMEOUT  = 5.0    # max seconds to wait for a newly launched window
-_PLACE_RETRIES = 3      # attempts to SetWindowPlacement
-_PLACE_DELAY   = 0.5    # seconds between placement retries
+_POLL_INTERVAL  = 0.25  # seconds between window-search retries
+_POLL_TIMEOUT   = 5.0   # max seconds to wait for a newly launched window
+_STARTUP_DELAY  = 1.5   # seconds to wait after a new window appears before placing it
+_PLACE_RETRIES  = 3     # attempts to place the window
+_PLACE_DELAY    = 0.5   # seconds between placement retries
 
 
 # ── Window lookup ────────────────────────────────────────────────────────────
@@ -49,6 +50,22 @@ def _find_windows_by_exe(exe_path: str) -> list[int]:
     return results
 
 
+def _pick_hwnd(existing: list[int], saved_hwnd: int | None, assigned: set[int]) -> int:
+    """Pick the best hwnd from existing windows.
+
+    Preference order:
+    1. The saved hwnd (exact match) if it's still in the list and not yet assigned
+    2. First unassigned hwnd from the list
+    3. existing[0] as last resort
+    """
+    if saved_hwnd and saved_hwnd in existing and saved_hwnd not in assigned:
+        return saved_hwnd
+    for hwnd in existing:
+        if hwnd not in assigned:
+            return hwnd
+    return existing[0]
+
+
 def _wait_for_window(exe_path: str, known_hwnds: set[int], timeout: float = _POLL_TIMEOUT) -> int | None:
     """Poll until a NEW hwnd appears for exe_path (not in known_hwnds). Returns hwnd or None."""
     deadline = time.monotonic() + timeout
@@ -63,26 +80,44 @@ def _wait_for_window(exe_path: str, known_hwnds: set[int], timeout: float = _POL
 # ── Window placement ─────────────────────────────────────────────────────────
 
 def _apply_placement(hwnd: int, rect: list[int], state: str) -> None:
-    """Set window position/size/state. Retries up to _PLACE_RETRIES times."""
+    """Set window position/size/state reliably. Retries up to _PLACE_RETRIES times.
+
+    Both rect (from GetWindowRect) and SetWindowPos use screen coordinates —
+    consistent coordinate system, no workspace-vs-screen mismatch.
+    """
     left, top, w, h = rect
-    right, bottom = left + w, top + h
 
-    if state == "maximized":
-        show_cmd = win32con.SW_SHOWMAXIMIZED
-    elif state == "minimized":
-        show_cmd = win32con.SW_SHOWMINIMIZED
-    else:
-        show_cmd = win32con.SW_SHOWNORMAL
-
-    placement = (0, show_cmd, (0, 0), (0, 0), (left, top, right, bottom))
+    swp_flags = win32con.SWP_NOACTIVATE | win32con.SWP_NOZORDER
 
     for attempt in range(_PLACE_RETRIES):
         try:
-            win32gui.SetWindowPlacement(hwnd, placement)
+            # Step 1: un-minimize / un-maximize so window can be freely moved
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+
+            # Step 2: force exact screen position and size
+            win32gui.SetWindowPos(hwnd, win32con.HWND_TOP, left, top, w, h, swp_flags)
+
+            # Step 3: re-apply maximized state if needed (SetWindowPos normalised it)
+            if state == "maximized":
+                win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+
             log.debug("Placed hwnd=%d rect=%s state=%s (attempt %d)", hwnd, rect, state, attempt + 1)
+
+            # Diagnostic: verify actual position after placement
+            try:
+                import time as _time
+                _time.sleep(0.2)
+                actual = win32gui.GetWindowRect(hwnd)
+                log.debug(
+                    "RESTORE hwnd=%d  wanted=(%d,%d,%d,%d)  actual=%s",
+                    hwnd, left, top, left+w, top+h, actual
+                )
+            except Exception:
+                pass
+
             return
         except Exception as exc:
-            log.warning("SetWindowPlacement failed (attempt %d): %s", attempt + 1, exc)
+            log.warning("Placement failed (attempt %d): %s", attempt + 1, exc)
             if attempt < _PLACE_RETRIES - 1:
                 time.sleep(_PLACE_DELAY)
 
@@ -142,19 +177,29 @@ def restore_profile(profile: dict[str, Any]) -> None:
     windows: list[dict[str, Any]] = profile.get("windows", [])
     browser_tabs: dict[str, list[str]] = profile.get("browser_tabs", {})
 
+    assigned_hwnds: set[int] = set()  # prevent two saved entries from grabbing same window
+
     for entry in windows:
         exe = entry.get("exe", "")
         rect = entry.get("rect", [0, 0, 800, 600])
         state = entry.get("state", "normal")
         title = entry.get("title", "")
+        saved_hwnd: int | None = entry.get("hwnd")
 
         if not exe or not os.path.isfile(exe):
             log.warning("Skipping %r — exe not found: %s", title, exe)
             continue
 
-        # Remember existing windows for this exe so we can detect the NEW one
-        known = set(_find_windows_by_exe(exe))
+        # If app is already running, reposition its existing window instead of launching a new instance
+        existing = _find_windows_by_exe(exe)
+        if existing:
+            hwnd = _pick_hwnd(existing, saved_hwnd, assigned_hwnds)
+            assigned_hwnds.add(hwnd)
+            log.info("App already running (%s), repositioning existing window hwnd=%d", os.path.basename(exe), hwnd)
+            _apply_placement(hwnd, rect, state)
+            continue
 
+        # App not running — launch it and wait for its window to appear
         try:
             args = entry.get("args") or [exe]
             subprocess.Popen(args)
@@ -163,11 +208,14 @@ def restore_profile(profile: dict[str, Any]) -> None:
             log.error("Failed to launch %s: %s", exe, exc)
             continue
 
-        hwnd = _wait_for_window(exe, known)
+        hwnd = _wait_for_window(exe, set())
         if hwnd is None:
             log.warning("Window for %s did not appear within %.1fs", exe, _POLL_TIMEOUT)
             continue
 
+        # Give the app time to finish initializing before we force its position,
+        # otherwise the app's own startup code may override our placement.
+        time.sleep(_STARTUP_DELAY)
         _apply_placement(hwnd, rect, state)
 
     if browser_tabs:

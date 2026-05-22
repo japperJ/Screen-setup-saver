@@ -73,48 +73,91 @@ class TestFindWindowsByExe:
         assert result == []
 
 
-class TestApplyPlacement:
-    def test_normal_state(self):
+class TestPickHwnd:
+    def test_prefers_saved_hwnd_when_unassigned(self):
         import restore
+        assert restore._pick_hwnd([1, 2, 3], saved_hwnd=2, assigned=set()) == 2
+
+    def test_skips_saved_hwnd_if_already_assigned(self):
+        import restore
+        assert restore._pick_hwnd([1, 2, 3], saved_hwnd=2, assigned={2}) == 1
+
+    def test_picks_first_unassigned_when_no_saved_hwnd(self):
+        import restore
+        assert restore._pick_hwnd([1, 2, 3], saved_hwnd=None, assigned={1}) == 2
+
+    def test_falls_back_to_existing_zero_when_all_assigned(self):
+        import restore
+        assert restore._pick_hwnd([1, 2], saved_hwnd=None, assigned={1, 2}) == 1
+
+    def test_saved_hwnd_not_in_existing_falls_back(self):
+        import restore
+        # saved hwnd is gone — pick first unassigned
+        assert restore._pick_hwnd([1, 2], saved_hwnd=99, assigned=set()) == 1
+
+
+class TestApplyPlacement:
+    def _setup_con(self):
         import win32con
+        win32con.SW_RESTORE = 9
         win32con.SW_SHOWNORMAL = 1
         win32con.SW_SHOWMAXIMIZED = 3
         win32con.SW_SHOWMINIMIZED = 2
+        win32con.SWP_NOACTIVATE = 0x0010
+        win32con.SWP_NOZORDER = 0x0004
+        win32con.HWND_TOP = 0
 
-        with patch("restore.win32gui.SetWindowPlacement") as mock_place:
+    def test_normal_state_uses_setwindowpos(self):
+        import restore
+        self._setup_con()
+
+        with patch("restore.win32gui.ShowWindow") as mock_show, \
+             patch("restore.win32gui.SetWindowPos") as mock_pos, \
+             patch("restore.win32gui.SetWindowPlacement") as mock_place:
             restore._apply_placement(1, [100, 200, 800, 600], "normal")
 
-        mock_place.assert_called_once()
-        args = mock_place.call_args[0]
-        placement = args[1]
-        assert placement[1] == win32con.SW_SHOWNORMAL
-        assert placement[4] == (100, 200, 900, 800)  # right=100+800, bottom=200+600
+        mock_show.assert_called_once_with(1, 9)  # SW_RESTORE
+        mock_pos.assert_called_once()
+        args = mock_pos.call_args[0]
+        assert args[1:5] == (0, 100, 200, 800)  # HWND_TOP, left, top, w
+        assert args[5] == 600  # h
+        mock_place.assert_not_called()  # not needed for normal state
 
-    def test_maximized_state(self):
+    def test_normal_state_position_args(self):
         import restore
-        import win32con
-        win32con.SW_SHOWNORMAL = 1
-        win32con.SW_SHOWMAXIMIZED = 3
-        win32con.SW_SHOWMINIMIZED = 2
+        self._setup_con()
 
-        with patch("restore.win32gui.SetWindowPlacement") as mock_place:
+        with patch("restore.win32gui.ShowWindow"), \
+             patch("restore.win32gui.SetWindowPos") as mock_pos, \
+             patch("restore.win32gui.SetWindowPlacement"):
+            restore._apply_placement(1, [100, 200, 800, 600], "normal")
+
+        _, hwnd_top, left, top, w, h, _ = mock_pos.call_args[0]
+        assert (left, top, w, h) == (100, 200, 800, 600)
+
+    def test_maximized_state_calls_sw_maximize(self):
+        import restore
+        self._setup_con()
+        import win32con
+        win32con.SW_MAXIMIZE = 3
+
+        show_calls = []
+        with patch("restore.win32gui.ShowWindow", side_effect=lambda h, cmd: show_calls.append(cmd)), \
+             patch("restore.win32gui.SetWindowPos"), \
+             patch("restore.win32gui.SetWindowPlacement") as mock_place:
             restore._apply_placement(1, [0, 0, 1920, 1080], "maximized")
 
-        placement = mock_place.call_args[0][1]
-        assert placement[1] == win32con.SW_SHOWMAXIMIZED
+        assert win32con.SW_MAXIMIZE in show_calls
+        mock_place.assert_not_called()
 
     def test_retries_on_failure(self):
         import restore
-        import win32con
-        win32con.SW_SHOWNORMAL = 1
-        win32con.SW_SHOWMAXIMIZED = 3
-        win32con.SW_SHOWMINIMIZED = 2
+        self._setup_con()
 
-        with patch("restore.win32gui.SetWindowPlacement", side_effect=Exception("error")), \
+        with patch("restore.win32gui.ShowWindow", side_effect=Exception("error")), \
              patch("restore.time.sleep") as mock_sleep:
             restore._apply_placement(1, [0, 0, 800, 600], "normal")
 
-        # Should have slept between retries
         assert mock_sleep.call_count == restore._PLACE_RETRIES - 1
 
 
@@ -215,9 +258,10 @@ class TestRestoreBrowserTabsWithExe:
         profile = self._make_profile()
 
         with patch("restore.os.path.isfile", return_value=True), \
-             patch("restore._find_windows_by_exe", side_effect=[set(), [99]]), \
+             patch("restore._find_windows_by_exe", return_value=[]), \
              patch("restore.subprocess.Popen") as mock_popen, \
              patch("restore._wait_for_window", return_value=99), \
+             patch("restore.time.sleep"), \
              patch("restore._apply_placement") as mock_place, \
              patch("restore.restore_browser_tabs") as mock_tabs:
             restore.restore_profile(profile)
@@ -225,6 +269,26 @@ class TestRestoreBrowserTabsWithExe:
         mock_popen.assert_called_once()
         mock_place.assert_called_once_with(99, [0, 0, 800, 600], "normal")
         mock_tabs.assert_called_once_with({"chrome": ["https://example.com"], "edge": []})
+
+    def test_repositions_already_running_app(self):
+        """If app is already open, reposition it without launching a new instance."""
+        import restore
+        import win32con
+        win32con.SW_SHOWNORMAL = 1
+        win32con.SW_SHOWMAXIMIZED = 3
+        win32con.SW_SHOWMINIMIZED = 2
+
+        profile = self._make_profile()
+
+        with patch("restore.os.path.isfile", return_value=True), \
+             patch("restore._find_windows_by_exe", return_value=[42]), \
+             patch("restore.subprocess.Popen") as mock_popen, \
+             patch("restore._apply_placement") as mock_place, \
+             patch("restore.restore_browser_tabs"):
+            restore.restore_profile(profile)
+
+        mock_popen.assert_not_called()
+        mock_place.assert_called_once_with(42, [0, 0, 800, 600], "normal")
 
     def test_skips_missing_exe(self):
         import restore

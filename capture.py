@@ -43,6 +43,10 @@ def _is_capturable(hwnd: int) -> bool:
     cls = win32gui.GetClassName(hwnd)
     if cls in _SKIP_CLASSES:
         return False
+    # Skip minimized windows — user only wants active layout saved
+    placement = win32gui.GetWindowPlacement(hwnd)
+    if placement[1] == win32con.SW_SHOWMINIMIZED:
+        return False
     return True
 
 
@@ -56,9 +60,18 @@ def _get_cmdline(hwnd: int) -> list[str]:
 
 
 def _get_exe(hwnd: int) -> str:
-    """Return the executable path for the process owning hwnd, or '' on error."""
+    """Return the executable path for the process owning hwnd, or '' on error.
+
+    Tries win32 API first; falls back to psutil which handles elevated/protected
+    processes that deny PROCESS_QUERY_LIMITED_INFORMATION.
+    """
     try:
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
+    except Exception:
+        return ""
+
+    # Attempt 1: win32 API
+    try:
         handle = win32api.OpenProcess(
             win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid
         )
@@ -66,6 +79,12 @@ def _get_exe(hwnd: int) -> str:
             return win32process.GetModuleFileNameEx(handle, 0)
         finally:
             win32api.CloseHandle(handle)
+    except Exception:
+        pass
+
+    # Attempt 2: psutil — works for many elevated/protected processes
+    try:
+        return psutil.Process(pid).exe()
     except Exception:
         return ""
 
@@ -82,10 +101,24 @@ def _get_window_state(hwnd: int) -> str:
 
 
 def _get_rect(hwnd: int) -> list[int]:
-    """Return [left, top, width, height] using the restore rect for min/max windows."""
-    placement = win32gui.GetWindowPlacement(hwnd)
-    # placement[4] is the normal (restore) rect as (left, top, right, bottom)
-    rc = placement[4]
+    """Return [left, top, width, height] in screen coordinates (from GetWindowRect).
+
+    GetWindowRect uses the same screen coordinate space as SetWindowPos, so
+    capture and restore are always consistent.  GetWindowPlacement returns
+    workspace coordinates and must NOT be used with SetWindowPos.
+    """
+    rc = win32gui.GetWindowRect(hwnd)
+
+    # Diagnostic: confirm both APIs for comparison
+    try:
+        placement = win32gui.GetWindowPlacement(hwnd)
+        log.debug(
+            "CAPTURE hwnd=%d  GetWindowPlacement=%s  GetWindowRect=%s",
+            hwnd, placement[4], rc
+        )
+    except Exception:
+        pass
+
     return [rc[0], rc[1], rc[2] - rc[0], rc[3] - rc[1]]
 
 
@@ -112,6 +145,8 @@ def capture_windows() -> list[dict[str, Any]]:
             "rect": _get_rect(hwnd),
             "state": _get_window_state(hwnd),
         }
+        if not entry["exe"]:
+            log.warning("Could not resolve exe for window %r (hwnd=%d) — will be skipped on restore", entry["title"], hwnd)
         windows.append(entry)
         log.debug("Captured: %s (%s)", entry["title"], os.path.basename(entry["exe"]))
         return True

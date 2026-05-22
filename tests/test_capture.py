@@ -10,17 +10,20 @@ import pytest
 class TestIsCapturable:
     """Unit tests for the _is_capturable filter."""
 
-    def _call(self, hwnd=1, visible=True, title="My App", ex_style=0, cls="Chrome_WidgetWin_1"):
+    def _call(self, hwnd=1, visible=True, title="My App", ex_style=0, cls="Chrome_WidgetWin_1", show_cmd=1):
         import capture
         import win32con
         win32con.GWL_EXSTYLE = -20
         win32con.WS_EX_TOOLWINDOW = 0x80
+        win32con.SW_SHOWMINIMIZED = 2
+        placement = (0, show_cmd, 0, (0, 0, 0, 0), (0, 0, 800, 600))
         with patch.multiple(
             "capture.win32gui",
             IsWindowVisible=MagicMock(return_value=visible),
             GetWindowText=MagicMock(return_value=title),
             GetWindowLong=MagicMock(return_value=ex_style),
             GetClassName=MagicMock(return_value=cls),
+            GetWindowPlacement=MagicMock(return_value=placement),
         ):
             return capture._is_capturable(hwnd)
 
@@ -44,6 +47,11 @@ class TestIsCapturable:
 
     def test_progman_rejected(self):
         assert self._call(cls="Progman") is False
+
+    def test_minimized_rejected(self):
+        import win32con
+        win32con.SW_SHOWMINIMIZED = 2
+        assert self._call(show_cmd=2) is False
 
 
 class TestGetWindowState:
@@ -71,13 +79,21 @@ class TestGetWindowState:
 
 
 class TestGetRect:
-    def test_computes_width_height(self):
+    def test_uses_getwindowrect(self):
         import capture
-        # restore rect: left=100, top=200, right=900, bottom=800
-        placement = (0, 1, 0, (0,0,0,0), (100, 200, 900, 800))
-        with patch("capture.win32gui.GetWindowPlacement", return_value=placement):
+        # GetWindowRect returns (left, top, right, bottom) in screen coordinates
+        with patch("capture.win32gui.GetWindowRect", return_value=(100, 200, 900, 800)), \
+             patch("capture.win32gui.GetWindowPlacement", return_value=(0, 1, 0, (0,0,0,0), (0,0,0,0))):
             rect = capture._get_rect(1)
-        assert rect == [100, 200, 800, 600]
+        assert rect == [100, 200, 800, 600]  # left, top, w=900-100, h=800-200
+
+    def test_negative_coords_preserved(self):
+        """Maximized windows use negative left (-7) due to invisible border — must be preserved."""
+        import capture
+        with patch("capture.win32gui.GetWindowRect", return_value=(-7, 0, 1727, 1399)), \
+             patch("capture.win32gui.GetWindowPlacement", return_value=(0, 1, 0, (0,0,0,0), (351,53,2085,1100))):
+            rect = capture._get_rect(1)
+        assert rect == [-7, 0, 1734, 1399]
 
 
 class TestGetCmdline:
@@ -120,6 +136,7 @@ class TestGetCmdline:
              patch("capture.win32gui.GetWindowLong", return_value=0), \
              patch("capture.win32gui.GetClassName", return_value="Notepad"), \
              patch("capture.win32gui.GetWindowPlacement", return_value=placement), \
+             patch("capture.win32gui.GetWindowRect", return_value=(0, 0, 800, 600)), \
              patch("capture.win32process.GetWindowThreadProcessId", return_value=(0, 123)), \
              patch("capture.win32api.OpenProcess", return_value=MagicMock()), \
              patch("capture.win32process.GetModuleFileNameEx", return_value=r"C:\Windows\notepad.exe"), \
@@ -169,7 +186,43 @@ class TestGetCmdline:
              patch("capture.win32gui.GetWindowLong", return_value=0), \
              patch("capture.win32gui.GetClassName", return_value="AppClass"), \
              patch("capture.win32gui.GetWindowPlacement", return_value=placement), \
-             patch("capture.win32process.GetWindowThreadProcessId", side_effect=Exception("access denied")):
+             patch("capture.win32gui.GetWindowRect", return_value=(0, 0, 800, 600)), \
+             patch("capture.win32process.GetWindowThreadProcessId", return_value=(0, 123)), \
+             patch("capture.win32api.OpenProcess", side_effect=Exception("access denied")), \
+             patch("capture.psutil.Process", side_effect=Exception("access denied")):
             result = capture.capture_windows()
 
         assert result[0]["exe"] == ""
+
+    def test_exe_psutil_fallback(self):
+        """If win32 OpenProcess fails, psutil.exe() is tried as fallback."""
+        import capture
+        import win32con
+        win32con.SW_SHOWMAXIMIZED = 3
+        win32con.SW_SHOWMINIMIZED = 2
+        win32con.WS_EX_TOOLWINDOW = 0x80
+        win32con.GWL_EXSTYLE = -20
+        win32con.PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+        placement = (0, 1, 0, (0, 0, 0, 0), (0, 0, 800, 600))
+
+        def fake_enum(cb, extra):
+            cb(1, None)
+            return True
+
+        mock_proc = MagicMock()
+        mock_proc.exe.return_value = r"C:\Program Files\Docker\Docker\frontend\Docker Desktop.exe"
+
+        with patch("capture.win32gui.EnumWindows", side_effect=fake_enum), \
+             patch("capture.win32gui.IsWindowVisible", return_value=True), \
+             patch("capture.win32gui.GetWindowText", return_value="Docker Desktop"), \
+             patch("capture.win32gui.GetWindowLong", return_value=0), \
+             patch("capture.win32gui.GetClassName", return_value="FLUTTER_RUNNER_WIN32_WINDOW"), \
+             patch("capture.win32gui.GetWindowPlacement", return_value=placement), \
+             patch("capture.win32gui.GetWindowRect", return_value=(0, 0, 800, 600)), \
+             patch("capture.win32process.GetWindowThreadProcessId", return_value=(0, 999)), \
+             patch("capture.win32api.OpenProcess", side_effect=Exception("access denied")), \
+             patch("capture.psutil.Process", return_value=mock_proc):
+            result = capture.capture_windows()
+
+        assert result[0]["exe"] == r"C:\Program Files\Docker\Docker\frontend\Docker Desktop.exe"
