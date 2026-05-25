@@ -15,6 +15,9 @@ _BROWSER_EXE_NAMES: dict[str, str] = {
     "msedge.exe": "edge",
 }
 
+# Reverse of _BROWSER_EXE_NAMES: browser name → exe basename
+_BROWSER_NAME_TO_EXE: dict[str, str] = {v: k for k, v in _BROWSER_EXE_NAMES.items()}
+
 
 def _annotate_browser_window_urls(
     windows: list[dict[str, Any]],
@@ -36,18 +39,41 @@ def _annotate_browser_window_urls(
             entry["url"] = url
 
 
-def build_profile_payload(cfg: dict[str, Any]) -> dict[str, Any]:
-    """Build a serializable profile payload from current desktop and browser state."""
+def build_profile_payload(
+    cfg: dict[str, Any],
+    windows_filter: set[int] | None = None,
+) -> dict[str, Any]:
+    """Build a serializable profile payload from current desktop and browser state.
+
+    Args:
+        cfg: App configuration dict (debug ports etc.).
+        windows_filter: Optional set of HWNDs to include. When None all captured
+            windows are saved (existing behaviour). When provided only windows
+            whose ``hwnd`` is in the set are saved, and browser tabs are filtered
+            to only the browsers represented by those windows.
+    """
     chrome_port = cfg.get("chrome_debug_port", 9222)
     edge_port = cfg.get("edge_debug_port", 9223)
 
     windows = capture.capture_windows()
+
+    if windows_filter is not None:
+        windows = [w for w in windows if w.get("hwnd") in windows_filter]
 
     # Capture tabs with titles so we can associate each URL with its browser window
     tabs_by_browser = browser.capture_browser_tabs_with_titles(
         chrome_port=chrome_port, edge_port=edge_port
     )
     _annotate_browser_window_urls(windows, tabs_by_browser)
+
+    # When a filter is active, drop tabs for browsers not represented in the selection
+    if windows_filter is not None:
+        selected_exes = {os.path.basename(w.get("exe", "")).lower() for w in windows}
+        tabs_by_browser = {
+            browser_name: tabs
+            for browser_name, tabs in tabs_by_browser.items()
+            if _BROWSER_NAME_TO_EXE.get(browser_name, "") in selected_exes
+        }
 
     # Flat URL lists for legacy fallback restoration
     browser_tabs = {

@@ -66,3 +66,77 @@ class TestBuildProfilePayload:
         notepad_entry = payload["windows"][1]
         assert edge_entry.get("url") == "https://ekstrabladet.dk/"
         assert "url" not in notepad_entry
+
+
+class TestWindowsFilter:
+    def test_windows_filter_excludes_unselected(self):
+        import profile_builder
+
+        cfg = {}
+        windows = [
+            {"hwnd": 101, "title": "Notepad", "exe": r"C:\Windows\notepad.exe"},
+            {"hwnd": 102, "title": "Explorer", "exe": r"C:\Windows\explorer.exe"},
+        ]
+        with patch("profile_builder.capture.capture_windows", return_value=windows), \
+             patch("profile_builder.browser.capture_browser_tabs_with_titles", return_value={"chrome": [], "edge": []}), \
+             patch("profile_builder.browser_runtime.find_browser_exe", return_value=None):
+            payload = profile_builder.build_profile_payload(cfg, windows_filter={101})
+
+        assert len(payload["windows"]) == 1
+        assert payload["windows"][0]["hwnd"] == 101
+
+    def test_windows_filter_none_includes_all(self):
+        import profile_builder
+
+        cfg = {}
+        windows = [
+            {"hwnd": 101, "title": "Notepad", "exe": r"C:\Windows\notepad.exe"},
+            {"hwnd": 102, "title": "Explorer", "exe": r"C:\Windows\explorer.exe"},
+        ]
+        with patch("profile_builder.capture.capture_windows", return_value=windows), \
+             patch("profile_builder.browser.capture_browser_tabs_with_titles", return_value={"chrome": [], "edge": []}), \
+             patch("profile_builder.browser_runtime.find_browser_exe", return_value=None):
+            payload = profile_builder.build_profile_payload(cfg, windows_filter=None)
+
+        assert len(payload["windows"]) == 2
+
+    def test_browser_tabs_excluded_when_browser_not_selected(self):
+        import profile_builder
+
+        cfg = {}
+        windows = [
+            {"hwnd": 101, "title": "Notepad", "exe": r"C:\Windows\notepad.exe"},
+        ]
+        tabs = {
+            "chrome": [{"title": "Example", "url": "https://example.com"}],
+            "edge": [{"title": "GitHub", "url": "https://github.com"}],
+        }
+        with patch("profile_builder.capture.capture_windows", return_value=windows), \
+             patch("profile_builder.browser.capture_browser_tabs_with_titles", return_value=tabs), \
+             patch("profile_builder.browser_runtime.find_browser_exe", return_value=None):
+            payload = profile_builder.build_profile_payload(cfg, windows_filter={101})
+
+        # Notepad has no browser exe — both browser tab lists should be absent/empty
+        assert payload["browser_tabs"].get("chrome", []) == []
+        assert payload["browser_tabs"].get("edge", []) == []
+
+    def test_browser_tabs_included_when_browser_selected(self):
+        import profile_builder
+
+        cfg = {}
+        windows = [
+            {"hwnd": 101, "title": "Bing - Edge", "exe": r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"},
+        ]
+        tabs = {
+            "chrome": [{"title": "Example", "url": "https://example.com"}],
+            "edge": [{"title": "Bing", "url": "https://bing.com"}],
+        }
+        with patch("profile_builder.capture.capture_windows", return_value=windows), \
+             patch("profile_builder.browser.capture_browser_tabs_with_titles", return_value=tabs), \
+             patch("profile_builder.browser_runtime.find_browser_exe", return_value=None), \
+             patch("profile_builder.browser.match_tab_url_by_title", return_value=None):
+            payload = profile_builder.build_profile_payload(cfg, windows_filter={101})
+
+        # msedge.exe selected → edge tabs included; chrome.exe not selected → chrome absent/empty
+        assert payload["browser_tabs"].get("edge") == ["https://bing.com"]
+        assert payload["browser_tabs"].get("chrome", []) == []
