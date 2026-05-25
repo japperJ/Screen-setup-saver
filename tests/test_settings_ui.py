@@ -281,14 +281,22 @@ class TestSaveSelectedLayout:
        win._refresh_profiles = Mock()
        return win
 
-    def test_save_all_calls_existing_save_layout(self):
-       """'Save all' still calls the unmodified _save_layout path."""
+    def test_save_all_does_not_pass_windows_filter(self):
+       """'Save all' invokes build_profile_payload without a windows_filter."""
        import settings_ui
 
        win = self._make_win()
-       with patch.object(win, "_save_layout") as mock_save:
+       cfg = {}
+       payload = {"windows": [], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
+       with patch("settings_ui.simpledialog.askstring", return_value="All"), \
+            patch("settings_ui.prof.load_config", return_value=cfg), \
+            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
+            patch("settings_ui.prof.save_profile"), \
+            patch("settings_ui.prof.save_config"), \
+            patch("settings_ui.messagebox.showwarning"):
            win._save_layout()
-       mock_save.assert_called_once()
+
+       mock_build.assert_called_once_with(cfg)  # no windows_filter kwarg
 
     def test_save_selected_opens_picker_with_live_windows(self):
        import settings_ui
@@ -396,6 +404,36 @@ class TestSaveSelectedLayout:
 
        mock_error.assert_called_once()
        mock_save_profile.assert_not_called()
+
+    def test_save_selected_warns_when_browser_selected_but_no_tabs(self):
+       import settings_ui
+
+       win = self._make_win()
+       windows = [{"hwnd": 101, "title": "Edge", "exe": r"C:\msedge.exe"}]
+       cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+       payload = {
+           "windows": [{"hwnd": 101, "title": "Edge", "exe": r"C:\msedge.exe"}],
+           "browser_tabs": {"chrome": [], "edge": []},
+           "browser_exes": {},
+       }
+       mock_picker = Mock()
+       mock_picker.result = {101}
+
+       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+            patch("settings_ui.capture.capture_windows", return_value=windows), \
+            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+            patch("settings_ui.prof.load_config", return_value=cfg), \
+            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
+            patch("settings_ui.prof.save_profile"), \
+            patch("settings_ui.prof.save_config"), \
+            patch("settings_ui.messagebox.showwarning") as mock_warning, \
+            patch("settings_ui.messagebox.showinfo") as mock_info:
+           win._save_selected_layout()
+
+       mock_warning.assert_called_once()
+       args = mock_warning.call_args.args
+       assert args[0] == "Saved without browser URLs"
+       mock_info.assert_not_called()
 
 
 class TestBrowserSetup:

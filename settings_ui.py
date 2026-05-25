@@ -509,6 +509,14 @@ class SettingsWindow:
             messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
             return
 
+        tab_total = 0
+        browser_tabs = data.get("browser_tabs", {}) if isinstance(data, dict) else {}
+        if isinstance(browser_tabs, dict):
+            for browser_name in ("chrome", "edge"):
+                tabs = browser_tabs.get(browser_name, [])
+                if isinstance(tabs, list):
+                    tab_total += len(tabs)
+
         cfg["last_profile"] = name
         config_error: Exception | None = None
         try:
@@ -540,6 +548,20 @@ class SettingsWindow:
                 f"Profile '{name}' saved, but refresh callback failed: {callback_error}",
                 parent=self._win,
             )
+        elif tab_total == 0:
+            # Check if any browser windows were selected — if so, warn about missing tabs
+            selected_has_browser = any(
+                os.path.basename(w.get("exe", "")).lower() in ("chrome.exe", "msedge.exe")
+                for w in data.get("windows", [])
+            )
+            if selected_has_browser:
+                messagebox.showwarning(
+                    "Saved without browser URLs",
+                    "No browser tabs captured. Launch browsers in Capture Mode before saving.",
+                    parent=self._win,
+                )
+            else:
+                messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
         else:
             messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
 
