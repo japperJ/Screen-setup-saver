@@ -323,20 +323,23 @@ class SettingsWindow:
 
         btn_frame = ttk.Frame(left_pane)
         btn_frame.pack(fill="x", pady=(10, 6))
-        for col in range(4):
+        for col in range(5):
             btn_frame.columnconfigure(col, weight=1)
 
-        ttk.Button(btn_frame, text="Save current layout", command=self._save_layout).grid(
+        ttk.Button(btn_frame, text="Save all", command=self._save_layout).grid(
             row=0, column=0, padx=4, sticky="ew"
         )
-        ttk.Button(btn_frame, text="Restore", command=self._restore_selected).grid(
+        ttk.Button(btn_frame, text="Save selected…", command=self._save_selected_layout).grid(
             row=0, column=1, padx=4, sticky="ew"
         )
-        ttk.Button(btn_frame, text="Rename", command=self._rename_selected).grid(
+        ttk.Button(btn_frame, text="Restore", command=self._restore_selected).grid(
             row=0, column=2, padx=4, sticky="ew"
         )
-        ttk.Button(btn_frame, text="Delete", command=self._delete_selected).grid(
+        ttk.Button(btn_frame, text="Rename", command=self._rename_selected).grid(
             row=0, column=3, padx=4, sticky="ew"
+        )
+        ttk.Button(btn_frame, text="Delete", command=self._delete_selected).grid(
+            row=0, column=4, padx=4, sticky="ew"
         )
 
         details_frame = ttk.LabelFrame(right_pane, text="Selected profile details", padding=8)
@@ -457,6 +460,84 @@ class SettingsWindow:
             messagebox.showwarning(
                 "Saved without browser URLs",
                 "No browser tabs captured. Launch browsers in Capture Mode before saving.",
+                parent=self._win,
+            )
+        else:
+            messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
+
+    def _save_selected_layout(self) -> None:
+        name = simpledialog.askstring(
+            "Save layout", "Profile name:", parent=self._win
+        )
+        if not name or not name.strip():
+            return
+        name = name.strip()
+
+        windows = capture.capture_windows()
+        if not windows:
+            messagebox.showinfo(
+                "Nothing to save",
+                "No windows are currently open.",
+                parent=self._win,
+            )
+            return
+
+        picker = WindowPickerDialog(self._win, windows)
+        selected_hwnds = picker.result
+        if selected_hwnds is None:
+            return
+        if not selected_hwnds:
+            messagebox.showerror(
+                "Nothing selected",
+                "Select at least one window to save.",
+                parent=self._win,
+            )
+            return
+
+        try:
+            cfg = prof.load_config()
+            data = profile_builder.build_profile_payload(cfg, windows_filter=selected_hwnds)
+        except Exception as exc:
+            log.error("Save failed before profile write: %s", exc)
+            messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
+            return
+
+        try:
+            prof.save_profile(name, data)
+        except Exception as exc:
+            log.error("Save failed while writing profile '%s': %s", name, exc)
+            messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
+            return
+
+        cfg["last_profile"] = name
+        config_error: Exception | None = None
+        try:
+            prof.save_config(cfg)
+        except Exception as exc:
+            config_error = exc
+            log.error("Profile '%s' saved, but config update failed: %s", name, exc)
+
+        self._refresh_profiles()
+
+        if config_error is not None:
+            messagebox.showwarning(
+                "Saved with warning",
+                f"Profile '{name}' saved, but updating defaults failed: {config_error}",
+                parent=self._win,
+            )
+            return
+
+        callback_error: Exception | None = None
+        try:
+            self._on_save(cfg)
+        except Exception as exc:
+            callback_error = exc
+            log.error("Profile saved but on_save callback failed: %s", exc)
+
+        if callback_error is not None:
+            messagebox.showwarning(
+                "Saved with warning",
+                f"Profile '{name}' saved, but refresh callback failed: {callback_error}",
                 parent=self._win,
             )
         else:

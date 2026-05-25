@@ -272,6 +272,132 @@ class TestWindowPickerDialog:
        assert dlg._result == set()
 
 
+class TestSaveSelectedLayout:
+    def _make_win(self):
+       import settings_ui
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._win = object()
+       win._on_save = Mock()
+       win._refresh_profiles = Mock()
+       return win
+
+    def test_save_all_calls_existing_save_layout(self):
+       """'Save all' still calls the unmodified _save_layout path."""
+       import settings_ui
+
+       win = self._make_win()
+       with patch.object(win, "_save_layout") as mock_save:
+           win._save_layout()
+       mock_save.assert_called_once()
+
+    def test_save_selected_opens_picker_with_live_windows(self):
+       import settings_ui
+
+       win = self._make_win()
+       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+       cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+       payload = {"windows": windows, "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
+       mock_picker = Mock()
+       mock_picker.result = {101}
+
+       with patch("settings_ui.simpledialog.askstring", return_value="MyProfile"), \
+            patch("settings_ui.capture.capture_windows", return_value=windows) as mock_capture, \
+            patch("settings_ui.WindowPickerDialog", return_value=mock_picker) as mock_dlg, \
+            patch("settings_ui.prof.load_config", return_value=cfg), \
+            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
+            patch("settings_ui.prof.save_profile"), \
+            patch("settings_ui.prof.save_config"), \
+            patch("settings_ui.messagebox.showinfo"):
+           win._save_selected_layout()
+
+       mock_capture.assert_called_once()
+       mock_dlg.assert_called_once_with(win._win, windows)
+
+    def test_save_selected_aborts_on_name_cancel(self):
+       import settings_ui
+
+       win = self._make_win()
+       with patch("settings_ui.simpledialog.askstring", return_value=None), \
+            patch("settings_ui.capture.capture_windows") as mock_capture, \
+            patch("settings_ui.prof.save_profile") as mock_save_profile:
+           win._save_selected_layout()
+
+       mock_capture.assert_not_called()
+       mock_save_profile.assert_not_called()
+
+    def test_save_selected_aborts_when_picker_cancelled(self):
+       import settings_ui
+
+       win = self._make_win()
+       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+       mock_picker = Mock()
+       mock_picker.result = None  # user hit Cancel
+
+       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+            patch("settings_ui.capture.capture_windows", return_value=windows), \
+            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+            patch("settings_ui.prof.save_profile") as mock_save_profile:
+           win._save_selected_layout()
+
+       mock_save_profile.assert_not_called()
+
+    def test_save_selected_passes_hwnd_filter_to_builder(self):
+       import settings_ui
+
+       win = self._make_win()
+       windows = [
+           {"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"},
+           {"hwnd": 102, "title": "Edge", "exe": "msedge.exe"},
+       ]
+       cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+       payload = {"windows": [windows[0]], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
+       mock_picker = Mock()
+       mock_picker.result = {101}  # only Notepad selected
+
+       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+            patch("settings_ui.capture.capture_windows", return_value=windows), \
+            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+            patch("settings_ui.prof.load_config", return_value=cfg), \
+            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
+            patch("settings_ui.prof.save_profile"), \
+            patch("settings_ui.prof.save_config"), \
+            patch("settings_ui.messagebox.showinfo"):
+           win._save_selected_layout()
+
+       mock_build.assert_called_once_with(cfg, windows_filter={101})
+
+    def test_save_selected_aborts_when_no_windows_open(self):
+       import settings_ui
+
+       win = self._make_win()
+       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+            patch("settings_ui.capture.capture_windows", return_value=[]), \
+            patch("settings_ui.messagebox.showinfo") as mock_info, \
+            patch("settings_ui.prof.save_profile") as mock_save_profile:
+           win._save_selected_layout()
+
+       mock_info.assert_called_once()
+       mock_save_profile.assert_not_called()
+
+    def test_save_selected_shows_error_when_zero_windows_checked(self):
+       import settings_ui
+
+       win = self._make_win()
+       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+       mock_picker = Mock()
+       mock_picker.result = set()  # all unchecked
+
+       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+            patch("settings_ui.capture.capture_windows", return_value=windows), \
+            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+            patch("settings_ui.messagebox.showerror") as mock_error, \
+            patch("settings_ui.prof.save_profile") as mock_save_profile:
+           win._save_selected_layout()
+
+       mock_error.assert_called_once()
+       mock_save_profile.assert_not_called()
+
+
 class TestBrowserSetup:
     def test_test_browser_capture_shows_connected_and_url_counts(self):
        import settings_ui
