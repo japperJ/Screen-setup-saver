@@ -8,6 +8,7 @@ from tkinter import messagebox, simpledialog, ttk
 from typing import Callable
 
 import profiles as prof
+import startup
 
 log = logging.getLogger(__name__)
 
@@ -60,66 +61,125 @@ class SettingsWindow:
     def _build(self) -> None:
         win = tk.Toplevel(self._root)
         win.title("Screen Setup Saver — Settings")
-        win.geometry("480x400")
-        win.resizable(False, False)
+        win.geometry("620x500")
+        win.minsize(620, 500)
         win.protocol("WM_DELETE_WINDOW", self.hide)
         self._win = win
+
+        self._apply_theme(win)
 
         nb = ttk.Notebook(win)
         nb.pack(fill="both", expand=True, padx=8, pady=8)
 
+        self._build_general_tab(nb)
         self._build_profiles_tab(nb)
         self._build_hotkeys_tab(nb)
         self._build_browser_tab(nb)
 
+    def _apply_theme(self, win: tk.Toplevel) -> None:
+        style = ttk.Style(win)
+        themes = style.theme_names()
+        if "vista" in themes:
+            style.theme_use("vista")
+        style.configure("TNotebook.Tab", padding=(14, 8))
+        style.configure("TButton", padding=(10, 5))
+        style.configure("Treeview", rowheight=26)
+
+    # ── General tab ───────────────────────────────────────────────────────────
+
+    def _build_general_tab(self, nb: ttk.Notebook) -> None:
+        frame = ttk.Frame(nb, padding=12)
+        nb.add(frame, text="General")
+
+        ttk.Label(
+            frame,
+            text="Startup",
+            font=("Segoe UI", 11, "bold"),
+        ).pack(anchor="w")
+
+        ttk.Label(
+            frame,
+            text="Launch Screen Setup Saver automatically when you sign in.",
+            justify="left",
+        ).pack(anchor="w", pady=(2, 10))
+
+        cfg = prof.load_config()
+        initial_startup = bool(cfg.get("start_with_windows", False))
+        try:
+            initial_startup = startup.startup_enabled()
+        except Exception as exc:
+            log.warning("Could not query startup task state: %s", exc)
+
+        self._start_with_windows_var = tk.BooleanVar(value=initial_startup)
+        ttk.Checkbutton(
+            frame,
+            text="Start with Windows (current user)",
+            variable=self._start_with_windows_var,
+        ).pack(anchor="w")
+
+        ttk.Button(
+            frame,
+            text="Save startup setting",
+            command=self._save_startup_settings,
+        ).pack(anchor="w", pady=(12, 0))
+
     # ── Profiles tab ──────────────────────────────────────────────────────────
 
     def _build_profiles_tab(self, nb: ttk.Notebook) -> None:
-        frame = ttk.Frame(nb)
+        frame = ttk.Frame(nb, padding=8)
         nb.add(frame, text="Profiles")
 
-        # Listbox + scrollbar
         list_frame = ttk.Frame(frame)
-        list_frame.pack(fill="both", expand=True, padx=8, pady=(8, 4))
+        list_frame.pack(fill="both", expand=True)
 
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical")
-        self._profile_list = tk.Listbox(
+        self._profile_list = ttk.Treeview(
             list_frame,
-            yscrollcommand=scrollbar.set,
-            selectmode="single",
-            height=10,
+            columns=("name",),
+            show="headings",
+            selectmode="browse",
+            height=12,
         )
+        self._profile_list.heading("name", text="Saved profiles")
+        self._profile_list.column("name", anchor="w", stretch=True)
+        self._profile_list.configure(yscrollcommand=scrollbar.set)
         scrollbar.config(command=self._profile_list.yview)
-        self._profile_list.pack(side="left", fill="both", expand=True)
+        self._profile_list.pack(side="left", fill="both", expand=True, padx=(0, 8))
         scrollbar.pack(side="right", fill="y")
 
-        # Buttons
         btn_frame = ttk.Frame(frame)
-        btn_frame.pack(fill="x", padx=8, pady=4)
+        btn_frame.pack(fill="x", pady=(10, 2))
+        for col in range(4):
+            btn_frame.columnconfigure(col, weight=1)
 
-        ttk.Button(btn_frame, text="Save current layout",
-                   command=self._save_layout).pack(side="left", padx=2)
-        ttk.Button(btn_frame, text="Restore",
-                   command=self._restore_selected).pack(side="left", padx=2)
-        ttk.Button(btn_frame, text="Rename",
-                   command=self._rename_selected).pack(side="left", padx=2)
-        ttk.Button(btn_frame, text="Delete",
-                   command=self._delete_selected).pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="Save current layout", command=self._save_layout).grid(
+            row=0, column=0, padx=4, sticky="ew"
+        )
+        ttk.Button(btn_frame, text="Restore", command=self._restore_selected).grid(
+            row=0, column=1, padx=4, sticky="ew"
+        )
+        ttk.Button(btn_frame, text="Rename", command=self._rename_selected).grid(
+            row=0, column=2, padx=4, sticky="ew"
+        )
+        ttk.Button(btn_frame, text="Delete", command=self._delete_selected).grid(
+            row=0, column=3, padx=4, sticky="ew"
+        )
 
         self._refresh_profiles()
 
     def _refresh_profiles(self) -> None:
         if self._win is None or not self._win.winfo_exists():
             return
-        self._profile_list.delete(0, "end")
+        self._profile_list.delete(*self._profile_list.get_children())
         for name in prof.list_profiles():
-            self._profile_list.insert("end", name)
+            self._profile_list.insert("", "end", values=(name,))
 
     def _selected_profile(self) -> str | None:
-        sel = self._profile_list.curselection()
+        sel = self._profile_list.selection()
         if not sel:
             return None
-        return self._profile_list.get(sel[0])
+        values = self._profile_list.item(sel[0], "values")
+        return values[0] if values else None
 
     def _save_layout(self) -> None:
         name = simpledialog.askstring(
@@ -148,6 +208,32 @@ class SettingsWindow:
         except Exception as exc:
             log.error("Save failed: %s", exc)
             messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
+
+    def _set_startup_preference(self, enabled: bool) -> None:
+        if enabled:
+            startup.enable_startup()
+        else:
+            startup.disable_startup()
+        cfg = prof.load_config()
+        cfg["start_with_windows"] = bool(enabled)
+        prof.save_config(cfg)
+
+    def _save_startup_settings(self) -> None:
+        enabled = bool(self._start_with_windows_var.get())
+        try:
+            self._set_startup_preference(enabled)
+            messagebox.showinfo(
+                "Saved",
+                "Startup setting updated.",
+                parent=self._win,
+            )
+        except Exception as exc:
+            log.error("Failed to update startup setting: %s", exc)
+            messagebox.showerror(
+                "Error",
+                f"Failed to update startup setting: {exc}",
+                parent=self._win,
+            )
 
     def _restore_selected(self) -> None:
         name = self._selected_profile()

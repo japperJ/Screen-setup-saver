@@ -191,6 +191,14 @@ class TestRestoreBrowserTabs:
             restore.restore_browser_tabs({"chrome": [], "edge": []})
         mock_open.assert_not_called()
 
+    def test_skips_non_web_urls(self):
+        import restore
+        tabs = {"chrome": ["https://example.com", "file:///c:/windows/system32/calc.exe"]}
+        with patch("restore._find_browser_exe", return_value=None), \
+             patch("restore.webbrowser.open") as mock_open:
+            restore.restore_browser_tabs(tabs)
+        mock_open.assert_called_once_with("https://example.com")
+
 
 class TestFindBrowserExe:
     def test_returns_path_if_exists(self):
@@ -266,9 +274,25 @@ class TestRestoreBrowserTabsWithExe:
              patch("restore.restore_browser_tabs") as mock_tabs:
             restore.restore_profile(profile)
 
-        mock_popen.assert_called_once()
+        mock_popen.assert_called_once_with([r"C:\Windows\notepad.exe"])
         mock_place.assert_called_once_with(99, [0, 0, 800, 600], "normal")
         mock_tabs.assert_called_once_with({"chrome": ["https://example.com"], "edge": []})
+
+    def test_ignores_profile_args_when_launching(self):
+        import restore
+        profile = self._make_profile()
+        profile["windows"][0]["args"] = [r"C:\Windows\notepad.exe", "/p", "malicious.txt"]
+
+        with patch("restore.os.path.isfile", return_value=True), \
+             patch("restore._find_windows_by_exe", return_value=[]), \
+             patch("restore.subprocess.Popen") as mock_popen, \
+             patch("restore._wait_for_window", return_value=99), \
+             patch("restore.time.sleep"), \
+             patch("restore._apply_placement"), \
+             patch("restore.restore_browser_tabs"):
+            restore.restore_profile(profile)
+
+        mock_popen.assert_called_once_with([r"C:\Windows\notepad.exe"])
 
     def test_repositions_already_running_app(self):
         """If app is already open, reposition it without launching a new instance."""
@@ -295,6 +319,17 @@ class TestRestoreBrowserTabsWithExe:
         profile = self._make_profile(exe=r"C:\nonexistent\app.exe")
 
         with patch("restore.os.path.isfile", return_value=False), \
+             patch("restore.subprocess.Popen") as mock_popen:
+            restore.restore_profile(profile)
+
+        mock_popen.assert_not_called()
+
+    def test_skips_non_exe_path(self):
+        import restore
+        profile = self._make_profile(exe=r"C:\temp\app.bat")
+        profile["browser_tabs"] = {}
+
+        with patch("restore.os.path.isfile", return_value=True), \
              patch("restore.subprocess.Popen") as mock_popen:
             restore.restore_profile(profile)
 

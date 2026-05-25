@@ -13,6 +13,7 @@ import capture
 import browser
 import restore
 import hotkeys
+import startup
 from tray import TrayApp
 from settings_ui import SettingsWindow
 
@@ -23,7 +24,7 @@ def _setup_logging() -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "app.log"
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
         handlers=[
             logging.FileHandler(log_file, encoding="utf-8"),
@@ -41,6 +42,7 @@ class App:
 
     def __init__(self) -> None:
         self._cfg = prof.load_config()
+        self._sync_startup_registration()
 
         # Hidden root window — keeps tkinter event loop alive
         self._root = tk.Tk()
@@ -60,6 +62,15 @@ class App:
             on_settings=self._show_settings,
             on_quit=self._quit,
         )
+
+    def _sync_startup_registration(self) -> None:
+        """Keep startup registration aligned with saved preference."""
+        if not self._cfg.get("start_with_windows", False):
+            return
+        try:
+            startup.enable_startup()
+        except Exception as exc:
+            log.warning("Could not ensure startup task registration: %s", exc)
 
     def run(self) -> None:
         """Start tray, register hotkeys, enter tk main loop."""

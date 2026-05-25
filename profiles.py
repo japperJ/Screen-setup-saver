@@ -80,6 +80,7 @@ _DEFAULTS: dict[str, Any] = {
     "last_profile": None,
     "chrome_debug_port": 9222,
     "edge_debug_port": 9223,
+    "start_with_windows": False,
 }
 
 

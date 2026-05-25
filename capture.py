@@ -141,7 +141,6 @@ def capture_windows() -> list[dict[str, Any]]:
             "hwnd": hwnd,
             "title": win32gui.GetWindowText(hwnd),
             "exe": _get_exe(hwnd),
-            "args": _get_cmdline(hwnd),
             "rect": _get_rect(hwnd),
             "state": _get_window_state(hwnd),
         }

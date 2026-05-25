@@ -8,6 +8,7 @@ import subprocess
 import time
 import webbrowser
 from typing import Any
+from urllib.parse import urlparse
 
 import win32api
 import win32con
@@ -147,6 +148,16 @@ def _find_browser_exe(browser_name: str) -> str | None:
     return None
 
 
+def _is_restorable_url(url: str) -> bool:
+    """Allow only standard web URLs from profile data."""
+    return urlparse(url).scheme in {"http", "https"}
+
+
+def _is_restorable_exe(exe_path: str) -> bool:
+    """Allow only absolute .exe paths that currently exist on disk."""
+    return os.path.isabs(exe_path) and exe_path.lower().endswith(".exe") and os.path.isfile(exe_path)
+
+
 def restore_browser_tabs(browser_tabs: dict[str, list[str]]) -> None:
     """Open saved browser tabs in the correct browser."""
     for browser_name, urls in browser_tabs.items():
@@ -154,6 +165,9 @@ def restore_browser_tabs(browser_tabs: dict[str, list[str]]) -> None:
             continue
         exe = _find_browser_exe(browser_name)
         for url in urls:
+            if not _is_restorable_url(url):
+                log.warning("Skipping non-web URL for %s: %s", browser_name, url)
+                continue
             try:
                 if exe:
                     subprocess.Popen([exe, url])
@@ -186,8 +200,8 @@ def restore_profile(profile: dict[str, Any]) -> None:
         title = entry.get("title", "")
         saved_hwnd: int | None = entry.get("hwnd")
 
-        if not exe or not os.path.isfile(exe):
-            log.warning("Skipping %r — exe not found: %s", title, exe)
+        if not exe or not _is_restorable_exe(exe):
+            log.warning("Skipping %r — unsafe or missing exe path: %s", title, exe)
             continue
 
         # If app is already running, reposition its existing window instead of launching a new instance
@@ -201,8 +215,9 @@ def restore_profile(profile: dict[str, Any]) -> None:
 
         # App not running — launch it and wait for its window to appear
         try:
-            args = entry.get("args") or [exe]
-            subprocess.Popen(args)
+            # Security: never execute argument vectors from profile JSON.
+            # Only launch the resolved executable path.
+            subprocess.Popen([exe])
             log.info("Launched %s", exe)
         except Exception as exc:
             log.error("Failed to launch %s: %s", exe, exc)

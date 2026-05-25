@@ -1,6 +1,6 @@
-pywin32==308
+pywin32==311
 pystray==0.19.5
 keyboard==0.13.5
-Pillow==11.0.0
+Pillow==12.2.0
 psutil>=6.1.0
-pytest==8.2.0
+pytest==9.0.3

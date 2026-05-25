@@ -90,6 +90,7 @@ class TestConfig:
         assert cfg["last_profile"] is None
         assert cfg["chrome_debug_port"] == 9222
         assert cfg["edge_debug_port"] == 9223
+        assert cfg["start_with_windows"] is False
 
     def test_backfill_missing_keys(self, profile_dirs):
         import profiles
