@@ -192,248 +192,292 @@ class TestSaveLayout:
 
 class TestWindowPickerDialog:
     def _make_dialog(self, windows):
-       """Create a WindowPickerDialog instance with mocked tkinter UI."""
-       import settings_ui
+        """Create a WindowPickerDialog instance with mocked tkinter UI."""
+        import settings_ui
 
-       dlg = settings_ui.WindowPickerDialog.__new__(settings_ui.WindowPickerDialog)
-       dlg._result = None
-       dlg._vars = {}
-       # Populate _vars as __init__ would, without touching tk
-       for w in windows:
-           hwnd = w.get("hwnd", 0)
-           var = type("FakeVar", (), {"_value": True, "get": lambda self: self._value, "set": lambda self, v: setattr(self, "_value", v)})()
-           dlg._vars[hwnd] = var
-       return dlg
+        dlg = settings_ui.WindowPickerDialog.__new__(settings_ui.WindowPickerDialog)
+        dlg._result = None
+        dlg._vars = {}
+        # Populate _vars as __init__ would, without touching tk
+        for w in windows:
+            hwnd = w.get("hwnd", 0)
+            var = type("FakeVar", (), {"_value": True, "get": lambda self: self._value, "set": lambda self, v: setattr(self, "_value", v)})()
+            dlg._vars[hwnd] = var
+        return dlg
 
     def test_set_all_checks_all_vars(self):
-       import settings_ui
+        import settings_ui
 
-       windows = [
-           {"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"},
-           {"hwnd": 102, "title": "Explorer", "exe": "explorer.exe"},
-       ]
-       dlg = self._make_dialog(windows)
-       dlg._set_all(False)
-       assert all(not v.get() for v in dlg._vars.values())
-       dlg._set_all(True)
-       assert all(v.get() for v in dlg._vars.values())
+        windows = [
+            {"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"},
+            {"hwnd": 102, "title": "Explorer", "exe": "explorer.exe"},
+        ]
+        dlg = self._make_dialog(windows)
+        dlg._set_all(False)
+        assert all(not v.get() for v in dlg._vars.values())
+        dlg._set_all(True)
+        assert all(v.get() for v in dlg._vars.values())
 
     def test_set_group_only_affects_group_windows(self):
-       import settings_ui
+        import settings_ui
 
-       windows = [
-           {"hwnd": 101, "title": "Win1", "exe": "notepad.exe"},
-           {"hwnd": 102, "title": "Win2", "exe": "notepad.exe"},
-           {"hwnd": 103, "title": "Win3", "exe": "explorer.exe"},
-       ]
-       dlg = self._make_dialog(windows)
-       group = [windows[0], windows[1]]
-       dlg._set_group(group, False)
-       assert not dlg._vars[101].get()
-       assert not dlg._vars[102].get()
-       assert dlg._vars[103].get()  # unaffected
+        windows = [
+            {"hwnd": 101, "title": "Win1", "exe": "notepad.exe"},
+            {"hwnd": 102, "title": "Win2", "exe": "notepad.exe"},
+            {"hwnd": 103, "title": "Win3", "exe": "explorer.exe"},
+        ]
+        dlg = self._make_dialog(windows)
+        group = [windows[0], windows[1]]
+        dlg._set_group(group, False)
+        assert not dlg._vars[101].get()
+        assert not dlg._vars[102].get()
+        assert dlg._vars[103].get()  # unaffected
 
     def test_save_returns_checked_hwnds(self):
-       import settings_ui
+        import settings_ui
 
-       windows = [
-           {"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"},
-           {"hwnd": 102, "title": "Explorer", "exe": "explorer.exe"},
-       ]
-       dlg = self._make_dialog(windows)
-       # Uncheck hwnd 102
-       dlg._vars[102].set(False)
+        windows = [
+            {"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"},
+            {"hwnd": 102, "title": "Explorer", "exe": "explorer.exe"},
+        ]
+        dlg = self._make_dialog(windows)
+        # Uncheck hwnd 102
+        dlg._vars[102].set(False)
 
-       # _save needs _dlg.destroy — patch it
-       dlg._dlg = type("FakeToplevel", (), {"destroy": lambda self: None})()
-       dlg._save()
+        # _save needs _dlg.destroy — patch it
+        dlg._dlg = type("FakeToplevel", (), {"destroy": lambda self: None})()
+        dlg._save()
 
-       assert dlg._result == {101}
+        assert dlg._result == {101}
 
     def test_cancel_returns_none(self):
-       import settings_ui
+        import settings_ui
 
-       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
-       dlg = self._make_dialog(windows)
-       dlg._dlg = type("FakeToplevel", (), {"destroy": lambda self: None})()
-       dlg._cancel()
+        windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+        dlg = self._make_dialog(windows)
+        dlg._dlg = type("FakeToplevel", (), {"destroy": lambda self: None})()
+        dlg._cancel()
 
-       assert dlg._result is None
+        assert dlg._result is None
 
     def test_save_empty_selection_returns_empty_set(self):
-       import settings_ui
+        import settings_ui
 
-       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
-       dlg = self._make_dialog(windows)
-       dlg._vars[101].set(False)
-       dlg._dlg = type("FakeToplevel", (), {"destroy": lambda self: None})()
-       dlg._save()
+        windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+        dlg = self._make_dialog(windows)
+        dlg._vars[101].set(False)
+        dlg._dlg = type("FakeToplevel", (), {"destroy": lambda self: None})()
+        dlg._save()
 
-       assert dlg._result == set()
+        assert dlg._result == set()
 
 
 class TestSaveSelectedLayout:
     def _make_win(self):
-       import settings_ui
-       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
-       win._win = object()
-       win._on_save = Mock()
-       win._refresh_profiles = Mock()
-       return win
+        import settings_ui
+        win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+        win._win = object()
+        win._on_save = Mock()
+        win._refresh_profiles = Mock()
+        return win
 
     def test_save_all_does_not_pass_windows_filter(self):
-       """'Save all' invokes build_profile_payload without a windows_filter."""
-       import settings_ui
+        """'Save all' invokes build_profile_payload without a windows_filter."""
+        import settings_ui
 
-       win = self._make_win()
-       cfg = {}
-       payload = {"windows": [], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
-       with patch("settings_ui.simpledialog.askstring", return_value="All"), \
-            patch("settings_ui.prof.load_config", return_value=cfg), \
-            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
-            patch("settings_ui.prof.save_profile"), \
-            patch("settings_ui.prof.save_config"), \
-            patch("settings_ui.messagebox.showwarning"):
-           win._save_layout()
+        win = self._make_win()
+        cfg = {}
+        payload = {"windows": [], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
+        with patch("settings_ui.simpledialog.askstring", return_value="All"), \
+             patch("settings_ui.prof.load_config", return_value=cfg), \
+             patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
+             patch("settings_ui.prof.save_profile"), \
+             patch("settings_ui.prof.save_config"), \
+             patch("settings_ui.messagebox.showwarning"):
+            win._save_layout()
 
-       mock_build.assert_called_once_with(cfg)  # no windows_filter kwarg
+        mock_build.assert_called_once_with(cfg)  # no windows_filter kwarg
 
     def test_save_selected_opens_picker_with_live_windows(self):
-       import settings_ui
+        import settings_ui
 
-       win = self._make_win()
-       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
-       cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
-       payload = {"windows": windows, "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
-       mock_picker = Mock()
-       mock_picker.result = {101}
+        win = self._make_win()
+        windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+        cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+        payload = {"windows": windows, "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
+        mock_picker = Mock()
+        mock_picker.result = {101}
 
-       with patch("settings_ui.simpledialog.askstring", return_value="MyProfile"), \
-            patch("settings_ui.capture.capture_windows", return_value=windows) as mock_capture, \
-            patch("settings_ui.WindowPickerDialog", return_value=mock_picker) as mock_dlg, \
-            patch("settings_ui.prof.load_config", return_value=cfg), \
-            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
-            patch("settings_ui.prof.save_profile"), \
-            patch("settings_ui.prof.save_config"), \
-            patch("settings_ui.messagebox.showinfo"):
-           win._save_selected_layout()
+        with patch("settings_ui.simpledialog.askstring", return_value="MyProfile"), \
+             patch("settings_ui.capture.capture_windows", return_value=windows) as mock_capture, \
+             patch("settings_ui.WindowPickerDialog", return_value=mock_picker) as mock_dlg, \
+             patch("settings_ui.prof.load_config", return_value=cfg), \
+             patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
+             patch("settings_ui.prof.save_profile"), \
+             patch("settings_ui.prof.save_config"), \
+             patch("settings_ui.messagebox.showinfo"):
+            win._save_selected_layout()
 
-       mock_capture.assert_called_once()
-       mock_dlg.assert_called_once_with(win._win, windows)
+        mock_capture.assert_called_once()
+        mock_dlg.assert_called_once_with(win._win, windows)
 
     def test_save_selected_aborts_on_name_cancel(self):
-       import settings_ui
+        import settings_ui
 
-       win = self._make_win()
-       with patch("settings_ui.simpledialog.askstring", return_value=None), \
-            patch("settings_ui.capture.capture_windows") as mock_capture, \
-            patch("settings_ui.prof.save_profile") as mock_save_profile:
-           win._save_selected_layout()
+        win = self._make_win()
+        with patch("settings_ui.simpledialog.askstring", return_value=None), \
+             patch("settings_ui.capture.capture_windows") as mock_capture, \
+             patch("settings_ui.prof.save_profile") as mock_save_profile:
+            win._save_selected_layout()
 
-       mock_capture.assert_not_called()
-       mock_save_profile.assert_not_called()
+        mock_capture.assert_not_called()
+        mock_save_profile.assert_not_called()
 
     def test_save_selected_aborts_when_picker_cancelled(self):
-       import settings_ui
+        import settings_ui
 
-       win = self._make_win()
-       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
-       mock_picker = Mock()
-       mock_picker.result = None  # user hit Cancel
+        win = self._make_win()
+        windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+        mock_picker = Mock()
+        mock_picker.result = None  # user hit Cancel
 
-       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
-            patch("settings_ui.capture.capture_windows", return_value=windows), \
-            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
-            patch("settings_ui.prof.save_profile") as mock_save_profile:
-           win._save_selected_layout()
+        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+             patch("settings_ui.capture.capture_windows", return_value=windows), \
+             patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+             patch("settings_ui.prof.save_profile") as mock_save_profile:
+            win._save_selected_layout()
 
-       mock_save_profile.assert_not_called()
+        mock_save_profile.assert_not_called()
 
     def test_save_selected_passes_hwnd_filter_to_builder(self):
-       import settings_ui
+        import settings_ui
 
-       win = self._make_win()
-       windows = [
-           {"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"},
-           {"hwnd": 102, "title": "Edge", "exe": "msedge.exe"},
-       ]
-       cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
-       payload = {"windows": [windows[0]], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
-       mock_picker = Mock()
-       mock_picker.result = {101}  # only Notepad selected
+        win = self._make_win()
+        windows = [
+            {"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"},
+            {"hwnd": 102, "title": "Edge", "exe": "msedge.exe"},
+        ]
+        cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+        payload = {"windows": [windows[0]], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
+        mock_picker = Mock()
+        mock_picker.result = {101}  # only Notepad selected
 
-       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
-            patch("settings_ui.capture.capture_windows", return_value=windows), \
-            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
-            patch("settings_ui.prof.load_config", return_value=cfg), \
-            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
-            patch("settings_ui.prof.save_profile"), \
-            patch("settings_ui.prof.save_config"), \
-            patch("settings_ui.messagebox.showinfo"):
-           win._save_selected_layout()
+        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+             patch("settings_ui.capture.capture_windows", return_value=windows), \
+             patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+             patch("settings_ui.prof.load_config", return_value=cfg), \
+             patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
+             patch("settings_ui.prof.save_profile"), \
+             patch("settings_ui.prof.save_config"), \
+             patch("settings_ui.messagebox.showinfo"):
+            win._save_selected_layout()
 
-       mock_build.assert_called_once_with(cfg, windows_filter={101})
+        mock_build.assert_called_once_with(cfg, windows_filter={101})
 
     def test_save_selected_aborts_when_no_windows_open(self):
-       import settings_ui
+        import settings_ui
 
-       win = self._make_win()
-       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
-            patch("settings_ui.capture.capture_windows", return_value=[]), \
-            patch("settings_ui.messagebox.showinfo") as mock_info, \
-            patch("settings_ui.prof.save_profile") as mock_save_profile:
-           win._save_selected_layout()
+        win = self._make_win()
+        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+             patch("settings_ui.capture.capture_windows", return_value=[]), \
+             patch("settings_ui.messagebox.showinfo") as mock_info, \
+             patch("settings_ui.prof.save_profile") as mock_save_profile:
+            win._save_selected_layout()
 
-       mock_info.assert_called_once()
-       mock_save_profile.assert_not_called()
+        mock_info.assert_called_once()
+        mock_save_profile.assert_not_called()
 
     def test_save_selected_shows_error_when_zero_windows_checked(self):
-       import settings_ui
+        import settings_ui
 
-       win = self._make_win()
-       windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
-       mock_picker = Mock()
-       mock_picker.result = set()  # all unchecked
+        win = self._make_win()
+        windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+        mock_picker = Mock()
+        mock_picker.result = set()  # all unchecked
 
-       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
-            patch("settings_ui.capture.capture_windows", return_value=windows), \
-            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
-            patch("settings_ui.messagebox.showerror") as mock_error, \
-            patch("settings_ui.prof.save_profile") as mock_save_profile:
-           win._save_selected_layout()
+        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+             patch("settings_ui.capture.capture_windows", return_value=windows), \
+             patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+             patch("settings_ui.messagebox.showerror") as mock_error, \
+             patch("settings_ui.prof.save_profile") as mock_save_profile:
+            win._save_selected_layout()
 
-       mock_error.assert_called_once()
-       mock_save_profile.assert_not_called()
+        mock_error.assert_called_once()
+        mock_save_profile.assert_not_called()
 
     def test_save_selected_warns_when_browser_selected_but_no_tabs(self):
-       import settings_ui
+        import settings_ui
 
-       win = self._make_win()
-       windows = [{"hwnd": 101, "title": "Edge", "exe": r"C:\msedge.exe"}]
-       cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
-       payload = {
-           "windows": [{"hwnd": 101, "title": "Edge", "exe": r"C:\msedge.exe"}],
-           "browser_tabs": {"chrome": [], "edge": []},
-           "browser_exes": {},
-       }
-       mock_picker = Mock()
-       mock_picker.result = {101}
+        win = self._make_win()
+        windows = [{"hwnd": 101, "title": "Edge", "exe": r"C:\msedge.exe"}]
+        cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+        payload = {
+            "windows": [{"hwnd": 101, "title": "Edge", "exe": r"C:\msedge.exe"}],
+            "browser_tabs": {"chrome": [], "edge": []},
+            "browser_exes": {},
+        }
+        mock_picker = Mock()
+        mock_picker.result = {101}
 
-       with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
-            patch("settings_ui.capture.capture_windows", return_value=windows), \
-            patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
-            patch("settings_ui.prof.load_config", return_value=cfg), \
-            patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
-            patch("settings_ui.prof.save_profile"), \
-            patch("settings_ui.prof.save_config"), \
-            patch("settings_ui.messagebox.showwarning") as mock_warning, \
-            patch("settings_ui.messagebox.showinfo") as mock_info:
-           win._save_selected_layout()
+        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+             patch("settings_ui.capture.capture_windows", return_value=windows), \
+             patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+             patch("settings_ui.prof.load_config", return_value=cfg), \
+             patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
+             patch("settings_ui.prof.save_profile"), \
+             patch("settings_ui.prof.save_config"), \
+             patch("settings_ui.messagebox.showwarning") as mock_warning, \
+             patch("settings_ui.messagebox.showinfo") as mock_info:
+            win._save_selected_layout()
 
-       mock_warning.assert_called_once()
-       args = mock_warning.call_args.args
-       assert args[0] == "Saved without browser URLs"
-       mock_info.assert_not_called()
+        mock_warning.assert_called_once()
+        args = mock_warning.call_args.args
+        assert args[0] == "Saved without browser URLs"
+        mock_info.assert_not_called()
+
+    def test_save_selected_shows_error_on_build_failure(self):
+        import settings_ui
+
+        win = self._make_win()
+        windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+        cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+        mock_picker = Mock()
+        mock_picker.result = {101}
+
+        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+             patch("settings_ui.capture.capture_windows", return_value=windows), \
+             patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+             patch("settings_ui.prof.load_config", return_value=cfg), \
+             patch("settings_ui.profile_builder.build_profile_payload", side_effect=RuntimeError("build error")), \
+             patch("settings_ui.prof.save_profile") as mock_save_profile, \
+             patch("settings_ui.messagebox.showerror") as mock_error:
+            win._save_selected_layout()
+
+        mock_error.assert_called_once()
+        call_args = mock_error.call_args
+        assert "build error" in str(call_args)
+        mock_save_profile.assert_not_called()
+
+    def test_save_selected_shows_error_on_save_failure(self):
+        import settings_ui
+
+        win = self._make_win()
+        windows = [{"hwnd": 101, "title": "Notepad", "exe": "notepad.exe"}]
+        cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
+        payload = {"windows": windows, "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
+        mock_picker = Mock()
+        mock_picker.result = {101}
+
+        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+             patch("settings_ui.capture.capture_windows", return_value=windows), \
+             patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
+             patch("settings_ui.prof.load_config", return_value=cfg), \
+             patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
+             patch("settings_ui.prof.save_profile", side_effect=RuntimeError("save error")), \
+             patch("settings_ui.messagebox.showerror") as mock_error:
+            win._save_selected_layout()
+
+        mock_error.assert_called_once()
 
 
 class TestBrowserSetup:
