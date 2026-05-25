@@ -9,6 +9,7 @@ from tkinter import messagebox, simpledialog, ttk
 from typing import Any, Callable
 
 import browser_runtime
+import capture
 import profiles as prof
 import profile_builder
 import startup
@@ -73,6 +74,108 @@ def _format_profile_details(profile: dict) -> str:
                 lines.append(f"- {url}")
 
     return "\n".join(lines)
+
+
+class WindowPickerDialog:
+    """Modal dialog for selecting which windows to include in a saved profile.
+
+    Usage::
+
+        picker = WindowPickerDialog(parent, windows)
+        selected_hwnds = picker.result  # set[int] or None if cancelled
+    """
+
+    def __init__(self, parent: tk.Misc, windows: list[dict]) -> None:
+        self._result: set[int] | None = None
+        self._vars: dict[int, tk.BooleanVar] = {}
+
+        self._dlg = tk.Toplevel(parent)
+        self._dlg.title("Select windows to save")
+        self._dlg.resizable(False, False)
+        self._dlg.grab_set()
+
+        self._build(windows)
+        parent.wait_window(self._dlg)
+
+    def _build(self, windows: list[dict]) -> None:
+        # Group windows by exe basename
+        groups: dict[str, list[dict]] = {}
+        for w in windows:
+            exe = os.path.basename(w.get("exe", "")).lower() or "unknown"
+            groups.setdefault(exe, []).append(w)
+
+        container = ttk.Frame(self._dlg, padding=8)
+        container.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(container, width=460, height=400)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scroll_frame = ttk.Frame(canvas)
+
+        scroll_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Global select / deselect
+        top_bar = ttk.Frame(scroll_frame)
+        top_bar.pack(fill="x", padx=4, pady=(4, 8))
+        ttk.Button(top_bar, text="Select all", command=lambda: self._set_all(True)).pack(side="left")
+        ttk.Button(top_bar, text="Deselect all", command=lambda: self._set_all(False)).pack(
+            side="left", padx=(4, 0)
+        )
+
+        # Per-group sections
+        for exe_name, wins in sorted(groups.items()):
+            grp = ttk.LabelFrame(scroll_frame, text=exe_name, padding=4)
+            grp.pack(fill="x", padx=4, pady=4)
+
+            hdr = ttk.Frame(grp)
+            hdr.pack(fill="x")
+            ttk.Button(
+                hdr, text="Deselect all", command=lambda ws=wins: self._set_group(ws, False)
+            ).pack(side="right")
+            ttk.Button(
+                hdr, text="Select all", command=lambda ws=wins: self._set_group(ws, True)
+            ).pack(side="right", padx=(0, 4))
+
+            for w in wins:
+                hwnd = w.get("hwnd", 0)
+                var = tk.BooleanVar(value=True)
+                self._vars[hwnd] = var
+                title = w.get("title", "") or f"(hwnd={hwnd})"
+                ttk.Checkbutton(grp, text=title, variable=var).pack(anchor="w", padx=8)
+
+        # Save / Cancel buttons
+        btn_frame = ttk.Frame(self._dlg, padding=8)
+        btn_frame.pack(fill="x")
+        ttk.Button(btn_frame, text="Cancel", command=self._cancel).pack(side="right")
+        ttk.Button(btn_frame, text="Save", command=self._save).pack(side="right", padx=(0, 4))
+
+    def _set_all(self, value: bool) -> None:
+        for var in self._vars.values():
+            var.set(value)
+
+    def _set_group(self, wins: list[dict], value: bool) -> None:
+        for w in wins:
+            hwnd = w.get("hwnd", 0)
+            if hwnd in self._vars:
+                self._vars[hwnd].set(value)
+
+    def _save(self) -> None:
+        self._result = {hwnd for hwnd, var in self._vars.items() if var.get()}
+        self._dlg.destroy()
+
+    def _cancel(self) -> None:
+        self._result = None
+        self._dlg.destroy()
+
+    @property
+    def result(self) -> set[int] | None:
+        return self._result
 
 
 class SettingsWindow:
