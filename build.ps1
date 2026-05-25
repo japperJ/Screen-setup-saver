@@ -49,19 +49,31 @@ if (-not $exePath) {
     throw "Build failed: expected executable not found. Checked: $expected"
 }
 
-$isccCandidates = @(
-    "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
-    "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+$makensisCandidates = @(
+    "$env:ProgramFiles\NSIS\makensis.exe",
+    "$env:ProgramFiles(x86)\NSIS\makensis.exe"
 )
-$iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+$makensis = $makensisCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
-if (-not $iscc) {
-    Write-Warning "Inno Setup compiler (ISCC.exe) not found. Skipping installer build."
+if (-not $makensis) {
+    $makensisCmd = Get-Command "makensis.exe" -ErrorAction SilentlyContinue
+    if ($makensisCmd) {
+        $makensis = $makensisCmd.Source
+    }
+}
+
+if (-not $makensis) {
+    Write-Warning "NSIS compiler (makensis.exe) not found. Skipping installer build."
     Write-Host "Standalone executable is available at: $exePath"
     exit 0
 }
 
-& $iscc "/DAppVersion=$Version" "/DAppExePath=$exePath" ".\installer\ScreenSetupSaver.iss"
+$nsisScript = Join-Path $repoRoot "installer\ScreenSetupSaver.nsi"
+if (-not (Test-Path $nsisScript)) {
+    throw "Installer script not found: $nsisScript"
+}
+
+& $makensis "/DAPP_VERSION=$Version" "/DAPP_EXE_PATH=$exePath" $nsisScript
 
 Write-Host "Done."
 Write-Host "Executable: $exePath"
