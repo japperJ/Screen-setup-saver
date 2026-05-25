@@ -447,6 +447,9 @@
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\bisect.py',
    'PYMODULE'),
   ('browser', 'C:\\rep\\Screen-setup-saver\\browser.py', 'PYMODULE'),
+  ('browser_runtime',
+   'C:\\rep\\Screen-setup-saver\\browser_runtime.py',
+   'PYMODULE'),
   ('bz2',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\bz2.py',
@@ -1453,6 +1456,9 @@
   ('pprint',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\pprint.py',
+   'PYMODULE'),
+  ('profile_builder',
+   'C:\\rep\\Screen-setup-saver\\profile_builder.py',
    'PYMODULE'),
   ('profiles', 'C:\\rep\\Screen-setup-saver\\profiles.py', 'PYMODULE'),
   ('psutil',

@@ -3,14 +3,76 @@
 from __future__ import annotations
 
 import logging
+import os
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
-from typing import Callable
+from typing import Any, Callable
 
+import browser_runtime
 import profiles as prof
+import profile_builder
 import startup
 
 log = logging.getLogger(__name__)
+
+
+def _format_profile_details(profile: dict) -> str:
+    """Build a human-readable summary for a saved profile."""
+    windows = profile.get("windows", []) if isinstance(profile, dict) else []
+    browser_tabs = profile.get("browser_tabs", {}) if isinstance(profile, dict) else {}
+    if not isinstance(windows, list):
+        windows = []
+    if not isinstance(browser_tabs, dict):
+        browser_tabs = {}
+
+    app_names: set[str] = set()
+    for win in windows:
+        if not isinstance(win, dict):
+            continue
+        exe = str(win.get("exe", "")).strip()
+        if exe:
+            app_names.add(os.path.basename(exe))
+
+    ordered_browsers = ["chrome", "edge"]
+    browser_keys = ordered_browsers + sorted(k for k in browser_tabs.keys() if k not in ordered_browsers)
+    url_total = 0
+    urls_by_browser: dict[str, list[str]] = {}
+    for key in browser_keys:
+        urls = browser_tabs.get(key, [])
+        if not isinstance(urls, list):
+            continue
+        clean_urls = [str(url).strip() for url in urls if str(url).strip()]
+        urls_by_browser[key] = clean_urls
+        url_total += len(clean_urls)
+
+    lines = [
+        f"Windows captured: {len(windows)}",
+        f"Browser tabs captured: {url_total}",
+        "",
+    ]
+
+    if app_names:
+        lines.append("Apps:")
+        for name in sorted(app_names, key=str.lower):
+            lines.append(f"- {name}")
+    else:
+        lines.append("Apps: none")
+
+    lines.append("")
+    if url_total == 0:
+        lines.append("No browser URLs saved in this profile.")
+        lines.append("Launch browsers in Capture Mode before saving.")
+    else:
+        lines.append("Browser URLs:")
+        for browser in browser_keys:
+            urls = urls_by_browser.get(browser, [])
+            if not urls:
+                continue
+            lines.append(f"{browser.title()} ({len(urls)}):")
+            for url in urls:
+                lines.append(f"- {url}")
+
+    return "\n".join(lines)
 
 
 class SettingsWindow:
@@ -20,7 +82,7 @@ class SettingsWindow:
 
     Args:
         root:             Hidden tk.Tk() root (keeps event loop alive).
-        on_save:          Called when user clicks Save in Profiles tab.
+        on_save:          Called with updated config when save succeeds.
         on_restore:       Called with profile name when user clicks Restore.
         on_hotkeys_change: Called with (save_combo, restore_combo) when hotkeys saved.
     """
@@ -28,7 +90,7 @@ class SettingsWindow:
     def __init__(
         self,
         root: tk.Tk,
-        on_save: Callable[[], None],
+        on_save: Callable[[dict[str, Any]], None],
         on_restore: Callable[[str], None],
         on_hotkeys_change: Callable[[str, str], None],
     ) -> None:
@@ -129,7 +191,15 @@ class SettingsWindow:
         frame = ttk.Frame(nb, padding=8)
         nb.add(frame, text="Profiles")
 
-        list_frame = ttk.Frame(frame)
+        split = ttk.Panedwindow(frame, orient="horizontal")
+        split.pack(fill="both", expand=True)
+
+        left_pane = ttk.Frame(split)
+        right_pane = ttk.Frame(split)
+        split.add(left_pane, weight=2)
+        split.add(right_pane, weight=3)
+
+        list_frame = ttk.Frame(left_pane)
         list_frame.pack(fill="both", expand=True)
 
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical")
@@ -146,9 +216,10 @@ class SettingsWindow:
         scrollbar.config(command=self._profile_list.yview)
         self._profile_list.pack(side="left", fill="both", expand=True, padx=(0, 8))
         scrollbar.pack(side="right", fill="y")
+        self._profile_list.bind("<<TreeviewSelect>>", self._on_profile_select)
 
-        btn_frame = ttk.Frame(frame)
-        btn_frame.pack(fill="x", pady=(10, 2))
+        btn_frame = ttk.Frame(left_pane)
+        btn_frame.pack(fill="x", pady=(10, 6))
         for col in range(4):
             btn_frame.columnconfigure(col, weight=1)
 
@@ -165,6 +236,23 @@ class SettingsWindow:
             row=0, column=3, padx=4, sticky="ew"
         )
 
+        details_frame = ttk.LabelFrame(right_pane, text="Selected profile details", padding=8)
+        details_frame.pack(fill="both", expand=True)
+        details_scrollbar = ttk.Scrollbar(details_frame, orient="vertical")
+        self._profile_details = tk.Text(
+            details_frame,
+            height=12,
+            wrap="word",
+            relief="flat",
+            borderwidth=0,
+            background="#f6f6f6",
+            yscrollcommand=details_scrollbar.set,
+        )
+        details_scrollbar.config(command=self._profile_details.yview)
+        self._profile_details.pack(side="left", fill="both", expand=True)
+        details_scrollbar.pack(side="right", fill="y")
+        self._set_profile_details_text("Select a profile to see saved windows and browser URLs.")
+
         self._refresh_profiles()
 
     def _refresh_profiles(self) -> None:
@@ -173,6 +261,7 @@ class SettingsWindow:
         self._profile_list.delete(*self._profile_list.get_children())
         for name in prof.list_profiles():
             self._profile_list.insert("", "end", values=(name,))
+        self._set_profile_details_text("Select a profile to see saved windows and browser URLs.")
 
     def _selected_profile(self) -> str | None:
         sel = self._profile_list.selection()
@@ -181,6 +270,24 @@ class SettingsWindow:
         values = self._profile_list.item(sel[0], "values")
         return values[0] if values else None
 
+    def _set_profile_details_text(self, text: str) -> None:
+        self._profile_details.config(state="normal")
+        self._profile_details.delete("1.0", "end")
+        self._profile_details.insert("1.0", text)
+        self._profile_details.config(state="disabled")
+
+    def _on_profile_select(self, _: object | None = None) -> None:
+        name = self._selected_profile()
+        if not name:
+            self._set_profile_details_text("Select a profile to see saved windows and browser URLs.")
+            return
+        try:
+            profile = prof.load_profile(name)
+            self._set_profile_details_text(_format_profile_details(profile))
+        except Exception as exc:
+            log.error("Failed to load profile details for %r: %s", name, exc)
+            self._set_profile_details_text(f"Failed to load profile details:\n{exc}")
+
     def _save_layout(self) -> None:
         name = simpledialog.askstring(
             "Save layout", "Profile name:", parent=self._win
@@ -188,26 +295,69 @@ class SettingsWindow:
         if not name or not name.strip():
             return
         name = name.strip()
-        # The actual save with the chosen name is handled by on_save via main.py
-        # which calls capture + save_profile; we pass name via a different path.
-        # Simpler: call save directly here.
+
         try:
-            import capture
-            import browser
             cfg = prof.load_config()
-            data = {
-                "windows": capture.capture_windows(),
-                "browser_tabs": browser.capture_browser_tabs(
-                    chrome_port=cfg.get("chrome_debug_port", 9222),
-                    edge_port=cfg.get("edge_debug_port", 9223),
-                ),
-            }
-            prof.save_profile(name, data)
-            self._refresh_profiles()
-            messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
+            data = profile_builder.build_profile_payload(cfg)
         except Exception as exc:
-            log.error("Save failed: %s", exc)
+            log.error("Save failed before profile write: %s", exc)
             messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
+            return
+
+        try:
+            prof.save_profile(name, data)
+        except Exception as exc:
+            log.error("Save failed while writing profile '%s': %s", name, exc)
+            messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
+            return
+
+        tab_total = 0
+        browser_tabs = data.get("browser_tabs", {}) if isinstance(data, dict) else {}
+        if isinstance(browser_tabs, dict):
+            for browser_name in ("chrome", "edge"):
+                tabs = browser_tabs.get(browser_name, [])
+                if isinstance(tabs, list):
+                    tab_total += len(tabs)
+
+        cfg["last_profile"] = name
+        config_error: Exception | None = None
+        try:
+            prof.save_config(cfg)
+        except Exception as exc:
+            config_error = exc
+            log.error("Profile '%s' saved, but config update failed: %s", name, exc)
+
+        self._refresh_profiles()
+
+        if config_error is not None:
+            messagebox.showwarning(
+                "Saved with warning",
+                f"Profile '{name}' saved, but updating defaults failed: {config_error}",
+                parent=self._win,
+            )
+            return
+
+        callback_error: Exception | None = None
+        try:
+            self._on_save(cfg)
+        except Exception as exc:
+            callback_error = exc
+            log.error("Profile saved but on_save callback failed: %s", exc)
+
+        if callback_error is not None:
+            messagebox.showwarning(
+                "Saved with warning",
+                f"Profile '{name}' saved, but refresh callback failed: {callback_error}",
+                parent=self._win,
+            )
+        elif tab_total == 0:
+            messagebox.showwarning(
+                "Saved without browser URLs",
+                "No browser tabs captured. Launch browsers in Capture Mode before saving.",
+                parent=self._win,
+            )
+        else:
+            messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
 
     def _set_startup_preference(self, enabled: bool) -> None:
         if enabled:
@@ -352,7 +502,25 @@ class SettingsWindow:
             row=1, column=1, padx=8, sticky="w"
         )
 
-        ttk.Button(frame, text="Save ports", command=self._save_ports).pack(pady=8)
+        ttk.Button(frame, text="Save ports", command=self._save_ports).pack(pady=(8, 4))
+
+        action_frame = ttk.Frame(frame)
+        action_frame.pack(fill="x", padx=12, pady=(4, 12))
+        ttk.Button(
+            action_frame,
+            text="Launch Chrome in Capture Mode",
+            command=self._launch_chrome_capture_mode,
+        ).pack(anchor="w", pady=2)
+        ttk.Button(
+            action_frame,
+            text="Launch Edge in Capture Mode",
+            command=self._launch_edge_capture_mode,
+        ).pack(anchor="w", pady=2)
+        ttk.Button(
+            action_frame,
+            text="Test browser capture now",
+            command=self._test_browser_capture,
+        ).pack(anchor="w", pady=2)
 
     def _save_ports(self) -> None:
         try:
@@ -366,3 +534,63 @@ class SettingsWindow:
         cfg["edge_debug_port"]   = edge_port
         prof.save_config(cfg)
         messagebox.showinfo("Saved", "Debug ports saved.", parent=self._win)
+
+    def _launch_chrome_capture_mode(self) -> None:
+        try:
+            port = int(self._chrome_port_var.get())
+        except ValueError:
+            messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
+            return
+        try:
+            browser_runtime.launch_browser_capture_mode("chrome", port, "127.0.0.1")
+        except Exception as exc:
+            log.error("Failed to launch Chrome capture mode: %s", exc)
+            messagebox.showerror("Error", f"Failed to launch Chrome: {exc}", parent=self._win)
+
+    def _launch_edge_capture_mode(self) -> None:
+        try:
+            port = int(self._edge_port_var.get())
+        except ValueError:
+            messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
+            return
+        try:
+            browser_runtime.launch_browser_capture_mode("edge", port, "127.0.0.1")
+        except Exception as exc:
+            log.error("Failed to launch Edge capture mode: %s", exc)
+            messagebox.showerror("Error", f"Failed to launch Edge: {exc}", parent=self._win)
+
+    def _test_browser_capture(self) -> None:
+        try:
+            chrome_port = int(self._chrome_port_var.get())
+            edge_port = int(self._edge_port_var.get())
+        except ValueError:
+            messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
+            return
+
+        try:
+            status = browser_runtime.get_capture_status(chrome_port, edge_port)
+        except Exception as exc:
+            log.error("Failed to test browser capture: %s", exc)
+            messagebox.showerror("Error", f"Failed to test browser capture: {exc}", parent=self._win)
+            return
+
+        def _coerce_count(value: Any) -> int:
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError):
+                return 0
+            return parsed if parsed >= 0 else 0
+
+        chrome_raw = status.get("chrome", {}) if isinstance(status, dict) else {}
+        edge_raw = status.get("edge", {}) if isinstance(status, dict) else {}
+        chrome = chrome_raw if isinstance(chrome_raw, dict) else {}
+        edge = edge_raw if isinstance(edge_raw, dict) else {}
+        chrome_count = _coerce_count(chrome.get("count", 0))
+        edge_count = _coerce_count(edge.get("count", 0))
+        summary = (
+            f"Chrome: {'Connected' if chrome.get('connected') else 'Not connected'}, "
+            f"URLs={chrome_count}\n"
+            f"Edge: {'Connected' if edge.get('connected') else 'Not connected'}, "
+            f"URLs={edge_count}"
+        )
+        messagebox.showinfo("Browser capture status", summary, parent=self._win)

@@ -10,12 +10,16 @@ Set-Location $repoRoot
 $buildDir = Join-Path $repoRoot "build"
 $distDir = Join-Path $repoRoot "dist"
 $appDistDir = Join-Path $distDir "app"
+$installerDistDir = Join-Path $distDir "installer"
 $pyiWorkDir = Join-Path $buildDir "pyinstaller"
 
 Write-Host "Building Screen Setup Saver ($Version)..."
 
 if (Test-Path $appDistDir) {
     Remove-Item $appDistDir -Recurse -Force
+}
+if (-not (Test-Path $installerDistDir)) {
+    New-Item -ItemType Directory -Path $installerDistDir | Out-Null
 }
 
 python -m pip install --upgrade pyinstaller
@@ -48,10 +52,14 @@ if (-not $exePath) {
     $expected = $candidateExePaths -join "; "
     throw "Build failed: expected executable not found. Checked: $expected"
 }
+$appPayloadDir = Split-Path -Parent $exePath
+
+$programFiles = $env:ProgramFiles
+$programFilesX86 = ${env:ProgramFiles(x86)}
 
 $makensisCandidates = @(
-    "$env:ProgramFiles\NSIS\makensis.exe",
-    "$env:ProgramFiles(x86)\NSIS\makensis.exe"
+    (Join-Path $programFiles "NSIS\makensis.exe"),
+    (Join-Path $programFilesX86 "NSIS\makensis.exe")
 )
 $makensis = $makensisCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
@@ -73,7 +81,10 @@ if (-not (Test-Path $nsisScript)) {
     throw "Installer script not found: $nsisScript"
 }
 
-& $makensis "/DAPP_VERSION=$Version" "/DAPP_EXE_PATH=$exePath" $nsisScript
+& $makensis "/DAPP_VERSION=$Version" "/DAPP_EXE_PATH=$exePath" "/DAPP_DIST_DIR=$appPayloadDir" $nsisScript
+if ($LASTEXITCODE -ne 0) {
+    throw "NSIS build failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "Done."
 Write-Host "Executable: $exePath"

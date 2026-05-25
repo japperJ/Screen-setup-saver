@@ -9,8 +9,7 @@ import tkinter as tk
 from tkinter import simpledialog
 
 import profiles as prof
-import capture
-import browser
+import profile_builder
 import restore
 import hotkeys
 import startup
@@ -51,7 +50,7 @@ class App:
 
         self._settings = SettingsWindow(
             root=self._root,
-            on_save=self._tray_save,     # not used by settings UI save, kept for extensibility
+            on_save=self._on_settings_save,
             on_restore=self._restore_named,
             on_hotkeys_change=self._update_hotkeys,
         )
@@ -111,13 +110,7 @@ class App:
         """Capture current layout and save as profile `name`."""
         try:
             cfg = prof.load_config()
-            data = {
-                "windows": capture.capture_windows(),
-                "browser_tabs": browser.capture_browser_tabs(
-                    chrome_port=cfg.get("chrome_debug_port", 9222),
-                    edge_port=cfg.get("edge_debug_port", 9223),
-                ),
-            }
+            data = profile_builder.build_profile_payload(cfg)
             prof.save_profile(name, data)
             cfg["last_profile"] = name
             prof.save_config(cfg)
@@ -145,6 +138,10 @@ class App:
     def _tray_save(self) -> None:
         """Tray 'Save layout' handler: always prompts for name."""
         self._root.after(0, self._prompt_save)
+
+    def _on_settings_save(self, cfg: dict[str, object]) -> None:
+        """Sync in-memory config after settings window saves a profile."""
+        self._cfg = cfg
 
     # ── Restore paths ──────────────────────────────────────────────────────────
 

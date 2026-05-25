@@ -82,21 +82,15 @@ The app uses a Task Scheduler logon task for startup persistence.
 
 ## Browser Tab Capture
 
-To capture browser tabs, you must launch Chrome and/or Edge with remote debugging enabled.
+Use the in-app flow:
 
-**Chrome** — create a shortcut with target:
-```
-chrome.exe --remote-debugging-port=9222
-```
+1. Open **Settings → Browser Setup**.
+2. Set **Chrome debug port** and **Edge debug port** (defaults: `9222` / `9223`), then click **Save ports** if you changed them.
+3. Click **Launch Chrome in Capture Mode** and/or **Launch Edge in Capture Mode**.
+4. Click **Test browser capture now** and check each browser status.
+5. Save your profile (for example: **Settings → Profiles → Save current layout**).
 
-**Edge** — create a shortcut with target:
-```
-msedge.exe --remote-debugging-port=9223
-```
-
-The default ports (9222/9223) can be changed in **Settings → Browser Setup**.
-
-> **Note:** Launch the browser from this shortcut *before* saving a layout. If the browser isn't running in debug mode, tabs are silently omitted from the saved profile.
+> **Note:** If a browser shows **Not connected** in the capture status, URL capture for that browser will be empty in the saved profile.
 
 ## Data Storage
 
@@ -124,9 +118,9 @@ From project root:
 
 What it does:
 1. Builds a standalone executable with PyInstaller.
-2. Builds a Windows setup wizard with Inno Setup (if `ISCC.exe` is installed).
+2. Builds a Windows setup wizard with NSIS (if `makensis.exe` is installed).
 
-If Inno Setup is missing, the script still produces the standalone executable under `.\dist\app\`.
+If NSIS is missing, the script still produces the standalone executable under `.\dist\app\`.
 
 ## Project Structure
 
@@ -140,8 +134,8 @@ browser.py       Browser tab capture (CDP)
 restore.py       Profile restoration
 hotkeys.py       Global hotkey management
 startup.py       Startup task management (Task Scheduler)
-build.ps1        Build script (PyInstaller + Inno Setup)
-installer/       Inno Setup installer script
+build.ps1        Build script (PyInstaller + NSIS)
+installer/       NSIS installer script
 assets/          Icon assets
 tests/           Test suite
 ```
