@@ -158,6 +158,73 @@ def _apply_placement(hwnd: int, rect: list[int], state: str) -> None:
     log.error("Failed to place hwnd=%d after %d attempts", hwnd, _PLACE_RETRIES)
 
 
+# ── Window minimization ──────────────────────────────────────────────────────
+
+def minimize_other_windows(profile: dict[str, Any]) -> None:
+    """Minimize all windows except those in the profile.
+    
+    Enumerates all visible windows and minimizes those whose executable paths
+    do not match any of the exe paths in profile["windows"]. Skips tool windows,
+    already-minimized windows, and handles API errors gracefully.
+    """
+    # Extract exe paths from profile (case-insensitive set)
+    profile_exes = set()
+    for window in profile.get("windows", []):
+        exe = window.get("exe", "").lower()
+        if exe:
+            profile_exes.add(exe)
+    
+    minimized_count = 0
+    
+    def _cb(hwnd: int, _: Any) -> bool:
+        nonlocal minimized_count
+        
+        # Skip invisible windows
+        if not win32gui.IsWindowVisible(hwnd):
+            return True
+        
+        # Skip windows without a title
+        if not win32gui.GetWindowText(hwnd).strip():
+            return True
+        
+        # Skip already-minimized windows
+        if win32gui.IsIconic(hwnd):
+            return True
+        
+        # Skip tool windows WITHOUT calling GetProcessId
+        ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        if ex_style & win32con.WS_EX_TOOLWINDOW:
+            return True
+        
+        # Get PID and exe path
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            handle = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            try:
+                exe_path = win32process.GetModuleFileNameEx(handle, 0).lower()
+            finally:
+                win32api.CloseHandle(handle)
+        except Exception as exc:
+            log.debug(f"Error getting exe path for hwnd={hwnd}: {exc}")
+            return True
+        
+        # Skip if this exe is in the profile
+        if exe_path in profile_exes:
+            return True
+        
+        # Minimize this window
+        try:
+            win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+            minimized_count += 1
+        except Exception as exc:
+            log.error(f"Failed to minimize hwnd={hwnd}: {exc}")
+        
+        return True
+    
+    win32gui.EnumWindows(_cb, None)
+    log.info(f"Minimized {minimized_count} windows")
+
+
 # ── Browser tab restoration ───────────────────────────────────────────────────
 
 _BROWSER_EXES = {
