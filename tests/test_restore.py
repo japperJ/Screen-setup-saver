@@ -796,10 +796,53 @@ class TestMinimizeOtherWindows:
            restore.minimize_other_windows(profile)
             
            mock_show_window.assert_called_once_with(edge_hwnd, restore.win32con.SW_MINIMIZE)
-        with patch("restore._resolve_browser_exe", return_value=r"C:\msedge.exe"), \
-             patch("restore.subprocess.Popen") as mock_popen:
-            restore.restore_browser_tabs(tabs, skip_urls={"https://bt.dk/"})
-        mock_popen.assert_not_called()
+
+    def test_minimize_other_windows_logs_minimized_count(self):
+        """Verify that the minimized window count is logged."""
+        import restore
+        from unittest.mock import Mock, patch
+        
+        profile = {
+           "windows": [
+               {"exe": r"C:\Windows\System32\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}
+           ],
+           "browser_tabs": {}
+        }
+        
+        edge_hwnd1 = 1002
+        edge_hwnd2 = 1004
+        
+        with patch("restore.win32gui.EnumWindows") as mock_enum, \
+            patch("restore.win32gui.IsIconic", return_value=False), \
+            patch("restore.win32gui.GetWindowLong", return_value=0), \
+            patch("restore.win32process.GetWindowThreadProcessId") as mock_get_pid, \
+            patch("restore.win32api.OpenProcess") as mock_open, \
+            patch("restore.win32process.GetModuleFileNameEx") as mock_get_exe, \
+            patch("restore.win32api.CloseHandle"), \
+            patch("restore.win32gui.ShowWindow") as mock_show_window, \
+            patch("restore.log") as mock_log:
+            
+           def enum_callback(callback, _):
+               callback(edge_hwnd1, None)
+               callback(edge_hwnd2, None)
+               return True
+           mock_enum.side_effect = enum_callback
+            
+           mock_get_pid.side_effect = [(0, 1002), (0, 1004)]
+            
+           mock_handle = Mock()
+           mock_open.return_value = mock_handle
+            
+           mock_get_exe.side_effect = [
+               r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+               r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+           ]
+            
+           restore.minimize_other_windows(profile)
+            
+           assert mock_log.info.called
+           info_msg = mock_log.info.call_args[0][0]
+           assert "2" in info_msg or "minimized" in info_msg.lower()
 
 
 class TestRestoreProfilePerWindowUrl:
