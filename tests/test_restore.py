@@ -10,6 +10,8 @@ class TestFindWindowsByExe:
         import restore
         import win32con
         win32con.PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        win32con.GWL_EXSTYLE = -20
+        win32con.WS_EX_TOOLWINDOW = 0x80
 
         def fake_enum(cb, extra):
             cb(1, None)
@@ -33,6 +35,8 @@ class TestFindWindowsByExe:
         import restore
         import win32con
         win32con.PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        win32con.GWL_EXSTYLE = -20
+        win32con.WS_EX_TOOLWINDOW = 0x80
 
         def fake_enum(cb, extra):
             cb(1, None)
