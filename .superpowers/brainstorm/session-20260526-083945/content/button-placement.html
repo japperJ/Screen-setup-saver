@@ -1,0 +1,70 @@
+<h2>Where should the "Edit JSON" button go?</h2>
+<p class="subtitle">The profile tab currently has 5 buttons in one row</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>6th button in the same row</h3>
+      <p>All buttons in one row — gets a bit tight but stays simple.</p>
+      <div class="mockup" style="margin-top:8px">
+        <div class="mockup-body" style="padding:8px">
+          <div style="display:flex;gap:4px;flex-wrap:nowrap">
+            <button class="mock-button" style="font-size:10px;padding:3px 6px;flex:1">Save all</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 6px;flex:1">Save sel…</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 6px;flex:1">Restore</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 6px;flex:1">Rename</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 6px;flex:1">Delete</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 6px;flex:1;background:#555;color:#fff">Edit JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Second row of buttons</h3>
+      <p>Save buttons on row 1, action buttons (Restore, Rename, Delete, Edit JSON) on row 2.</p>
+      <div class="mockup" style="margin-top:8px">
+        <div class="mockup-body" style="padding:8px">
+          <div style="display:flex;gap:4px;margin-bottom:4px">
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Save all</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Save selected…</button>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Restore</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Rename</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Delete</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1;background:#555;color:#fff">Edit JSON</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Right-click context menu on profile</h3>
+      <p>Right-clicking a profile shows a context menu with Restore, Rename, Delete, and Edit JSON. Keeps the button bar clean.</p>
+      <div class="mockup" style="margin-top:8px">
+        <div class="mockup-body" style="padding:8px;position:relative">
+          <div style="display:flex;gap:4px;margin-bottom:8px">
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Save all</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Save selected…</button>
+            <button class="mock-button" style="font-size:10px;padding:3px 8px;flex:1">Restore</button>
+          </div>
+          <div style="background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px 0;width:130px;box-shadow:2px 2px 6px rgba(0,0,0,0.15);font-size:11px">
+            <div style="padding:4px 12px;cursor:pointer">▶ Restore</div>
+            <div style="padding:4px 12px;cursor:pointer">✏ Rename</div>
+            <div style="padding:4px 12px;cursor:pointer;color:#c00">🗑 Delete</div>
+            <div style="border-top:1px solid #eee;margin:2px 0"></div>
+            <div style="padding:4px 12px;cursor:pointer;font-weight:bold">{ } Edit JSON</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

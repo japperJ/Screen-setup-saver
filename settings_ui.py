@@ -320,6 +320,7 @@ class SettingsWindow:
         self._profile_list.pack(side="left", fill="both", expand=True, padx=(0, 8))
         scrollbar.pack(side="right", fill="y")
         self._profile_list.bind("<<TreeviewSelect>>", self._on_profile_select)
+        self._profile_list.bind("<Button-3>", self._on_profile_right_click)
 
         btn_frame = ttk.Frame(left_pane)
         btn_frame.pack(fill="x", pady=(10, 6))
@@ -393,6 +394,33 @@ class SettingsWindow:
         except Exception as exc:
             log.error("Failed to load profile details for %r: %s", name, exc)
             self._set_profile_details_text(f"Failed to load profile details:\n{exc}")
+
+    def _on_profile_right_click(self, event: object) -> None:
+        # Select the row under the cursor before posting the menu
+        row = self._profile_list.identify_row(event.y)  # type: ignore[attr-defined]
+        if row:
+            self._profile_list.selection_set(row)
+        name = self._selected_profile()
+        menu = tk.Menu(self._win, tearoff=0)
+        menu.add_command(label="Restore", command=self._restore_selected)
+        menu.add_command(label="Rename", command=self._rename_selected)
+        menu.add_command(label="Delete", command=self._delete_selected)
+        menu.add_separator()
+        edit_state = "normal" if name else "disabled"
+        menu.add_command(label="Edit JSON", command=self._edit_json_selected, state=edit_state)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)  # type: ignore[attr-defined]
+        finally:
+            menu.grab_release()
+
+    def _edit_json_selected(self) -> None:
+        name = self._selected_profile()
+        if not name:
+            return
+        self._show_json_editor(name)
+
+    def _show_json_editor(self, name: str) -> None:
+        pass  # implemented in Task 2
 
     def _save_layout(self) -> None:
         name = simpledialog.askstring(

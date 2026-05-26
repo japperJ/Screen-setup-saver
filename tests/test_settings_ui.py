@@ -547,3 +547,27 @@ class TestBrowserSetup:
        assert title == "Browser capture status"
        assert "Chrome: Not connected, URLs=0" in msg
        assert "Edge: Not connected, URLs=0" in msg
+
+
+class TestEditJsonUI:
+    def test_edit_json_selected_calls_show_json_editor(self):
+       import settings_ui
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._selected_profile = Mock(return_value="MyProfile")
+       win._show_json_editor = Mock()
+
+       win._edit_json_selected()
+
+       win._show_json_editor.assert_called_once_with("MyProfile")
+
+    def test_edit_json_selected_no_op_when_no_selection(self):
+       import settings_ui
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._selected_profile = Mock(return_value=None)
+       win._show_json_editor = Mock()
+
+       win._edit_json_selected()
+
+       win._show_json_editor.assert_not_called()
