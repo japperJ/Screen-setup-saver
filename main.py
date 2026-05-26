@@ -149,7 +149,10 @@ class App:
         try:
             profile = prof.load_profile(name)
             if messagebox.askyesno("Restore Profile", "Minimize all other windows before restoring?"):
-                restore.minimize_other_windows(profile)
+                try:
+                    restore.minimize_other_windows(profile)
+                except Exception as exc:
+                    log.warning("Minimize failed, continuing with restore: %s", exc)
             restore.restore_profile(profile)
             self._tray.notify("Restored", f"Layout '{name}' restored")
             log.info("Restored profile %r", name)
