@@ -856,10 +856,63 @@ class TestMinimizeOtherWindows:
            ]
              
            restore.minimize_other_windows(profile)
-             
+            
            assert mock_log.info.called
-           info_msg = mock_log.info.call_args[0][0]
-           assert "2 windows minimized" in info_msg or ("2" in info_msg and "minimized" in info_msg.lower())
+           args = mock_log.info.call_args[0]
+           assert "minimized" in args[0].lower()
+           assert args[1] == 2  # count is the second positional arg
+
+    def test_minimize_other_windows_empty_profile_minimizes_all(self):
+        """Empty profile (no windows) should minimize every visible window."""
+        import restore
+        from unittest.mock import patch
+
+        profile = {"windows": [], "browser_tabs": {}}
+
+        with patch("restore.win32gui.EnumWindows") as mock_enum, \
+            patch("restore.win32gui.IsWindowVisible", return_value=True), \
+            patch("restore.win32gui.GetWindowText", return_value="Window Title"), \
+            patch("restore.win32gui.IsIconic", return_value=False), \
+            patch("restore.win32gui.GetWindowLong", return_value=0), \
+            patch("restore.win32process.GetWindowThreadProcessId", return_value=(0, 1001)), \
+            patch("restore.win32api.OpenProcess", return_value=0x12345), \
+            patch("restore.win32process.GetModuleFileNameEx", return_value=r"C:\notepad.exe"), \
+            patch("restore.win32api.CloseHandle"), \
+            patch("restore.win32gui.ShowWindow") as mock_show_window, \
+            patch("restore.log"):
+
+           def enum_callback(callback, _):
+               callback(1001, None)
+               callback(1002, None)
+               return True
+
+           mock_enum.side_effect = enum_callback
+           restore.minimize_other_windows(profile)
+           assert mock_show_window.call_count == 2
+
+    def test_restore_dialog_none_skips_minimize(self):
+        """None return from askyesno (dialog closed) should skip minimize."""
+        import main
+        from unittest.mock import patch, MagicMock
+
+        profile_data = {"windows": [], "browser_tabs": {}}
+
+        with patch("main.prof.load_config", return_value={}), \
+            patch("main.TrayApp"), \
+            patch("main.tk.Tk") as mock_tk_constructor:
+
+           mock_root = MagicMock()
+           mock_tk_constructor.return_value = mock_root
+           app = main.App()
+
+        with patch("main.prof.load_profile", return_value=profile_data), \
+            patch("main.messagebox.askyesno", return_value=None), \
+            patch("main.restore.minimize_other_windows") as mock_minimize, \
+            patch("main.restore.restore_profile"), \
+            patch("main.log"):
+
+           app._do_restore("TestProfile")
+           mock_minimize.assert_not_called()
 
 
 class TestRestoreProfilePerWindowUrl:
