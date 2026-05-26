@@ -41,6 +41,11 @@ Unicode True
 
 Section "Screen Setup Saver (required)" SecMain
   SectionIn RO
+
+  ; Stop the app if it is already running so the EXE is not locked during install
+  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXE_NAME}"'
+  Sleep 2000
+
   SetOutPath "$INSTDIR"
   File /r "${APP_DIST_DIR}\*"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
