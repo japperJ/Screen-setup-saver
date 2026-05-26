@@ -788,13 +788,9 @@ class TestEditJsonUI:
     def test_save_json_edit_valid_saves_profile_and_closes_editor(self):
        import settings_ui
        import json
-
-       # Setup
-       mock_prof_manager = Mock()
-       mock_prof_manager.list_profiles.return_value = [("profile1", "2024-01-01")]
+       from unittest.mock import patch
 
        win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
-       win._prof_manager = mock_prof_manager
        win._json_editor = Mock()
        win._json_error_label = Mock()
        win._editing_profile = "profile1"
@@ -805,23 +801,23 @@ class TestEditJsonUI:
        valid_json_str = json.dumps(valid_data)
        win._json_editor.get.return_value = valid_json_str
 
-       # Action
-       win._save_json_edit()
+       # Mock prof.save_profile
+       with patch("settings_ui.prof.save_profile") as mock_save:
+           # Action
+           win._save_json_edit()
 
-       # Assert
-       mock_prof_manager.save_profile.assert_called_once_with("profile1", valid_data)
+           # Assert
+           mock_save.assert_called_once_with("profile1", valid_data)
+        
        win._cancel_json_edit.assert_called_once()
-       # Error label should not be set on success (or should be cleared)
+       # Error label should not be set on success
        win._json_error_label.config.assert_not_called()
 
     def test_save_json_edit_invalid_json_shows_error(self):
        import settings_ui
 
        # Setup
-       mock_prof_manager = Mock()
-
        win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
-       win._prof_manager = mock_prof_manager
        win._json_editor = Mock()
        win._json_error_label = Mock()
        win._editing_profile = "profile1"
@@ -839,7 +835,43 @@ class TestEditJsonUI:
        error_call = win._json_error_label.config.call_args
        error_text = error_call[1].get("text", "")
        assert "JSON Parse Error:" in error_text
-       mock_prof_manager.save_profile.assert_not_called()
        win._cancel_json_edit.assert_not_called()
+       # editing_profile should still be set so user can retry
+       assert win._editing_profile == "profile1"
+
+    def test_save_json_edit_save_error_shows_error(self):
+       import settings_ui
+       import json
+       from unittest.mock import patch
+
+       # Setup
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._json_editor = Mock()
+       win._json_error_label = Mock()
+       win._editing_profile = "profile1"
+       win._cancel_json_edit = Mock()
+
+       # Valid JSON payload
+       valid_data = {"windows": [], "browser_tabs": {"chrome": []}}
+       valid_json_str = json.dumps(valid_data)
+       win._json_editor.get.return_value = valid_json_str
+
+       # Mock prof.save_profile to raise an exception
+       save_error = IOError("Failed to write profile")
+       with patch("settings_ui.prof.save_profile", side_effect=save_error):
+           # Action
+           win._save_json_edit()
+
+       # Assert
+       # Error label should be set with save error message
+       win._json_error_label.config.assert_called_once()
+       error_call = win._json_error_label.config.call_args
+       error_text = error_call[1].get("text", "")
+       assert "Save Error:" in error_text
+       assert "Failed to write profile" in error_text
+
+       # Editor should remain open (cancel should NOT be called)
+       win._cancel_json_edit.assert_not_called()
+
        # editing_profile should still be set so user can retry
        assert win._editing_profile == "profile1"

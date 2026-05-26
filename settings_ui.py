@@ -497,7 +497,7 @@ class SettingsWindow:
             return
         
         try:
-            self._prof_manager.save_profile(self._editing_profile, parsed_data)
+            prof.save_profile(self._editing_profile, parsed_data)
         except Exception as e:
             self._json_error_label.config(text=f"Save Error: {str(e)}")
             return
