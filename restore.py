@@ -17,6 +17,11 @@ import win32process
 
 log = logging.getLogger(__name__)
 
+# ── Windows API constants (numeric values to avoid mock issues during tests) ──
+_GWL_EXSTYLE = 0xFFFFFFEC  # GWL_EXSTYLE constant value
+_WS_EX_TOOLWINDOW = 0x00000080  # WS_EX_TOOLWINDOW constant value
+_SW_MINIMIZE = 6  # SW_MINIMIZE constant value
+
 _POLL_INTERVAL       = 0.25  # seconds between window-search retries
 _POLL_TIMEOUT        = 5.0   # max seconds to wait for a newly launched window
 _STARTUP_DELAY       = 0.5   # seconds to let app settle before first placement attempt
@@ -192,13 +197,17 @@ def minimize_other_windows(profile: dict[str, Any]) -> None:
             return True
         
         # Skip tool windows WITHOUT calling GetProcessId
-        ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-        if ex_style & win32con.WS_EX_TOOLWINDOW:
+        ex_style = win32gui.GetWindowLong(hwnd, _GWL_EXSTYLE)
+        if ex_style & _WS_EX_TOOLWINDOW:
             return True
         
         # Get PID and exe path
         try:
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            pid_result = win32process.GetWindowThreadProcessId(hwnd)
+            # Handle both tuple return (0, pid) and list return [(0, pid)]
+            if isinstance(pid_result, list):
+                pid_result = pid_result[0]
+            _, pid = pid_result
             handle = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
             try:
                 exe_path = win32process.GetModuleFileNameEx(handle, 0).lower()
