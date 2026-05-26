@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import subprocess
 import urllib.request
-from typing import Any
 
 import browser
 
@@ -34,7 +33,7 @@ def launch_browser_capture_mode(
     browser_name: str,
     port: int,
     address: str = "127.0.0.1",
-) -> subprocess.Popen[Any]:
+) -> subprocess.Popen[bytes]:
     """Launch a browser with remote debugging enabled for tab capture."""
     exe = find_browser_exe(browser_name)
     if not exe:
@@ -57,7 +56,7 @@ def _probe_port(port: int) -> bool:
         return False
 
 
-def get_capture_status(chrome_port: int, edge_port: int) -> dict[str, dict[str, Any]]:
+def get_capture_status(chrome_port: int, edge_port: int) -> dict[str, dict]:
     """Return capture connectivity and URL counts for Chrome and Edge."""
     tabs = browser.capture_browser_tabs(chrome_port=chrome_port, edge_port=edge_port)
     return {

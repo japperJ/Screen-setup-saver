@@ -85,7 +85,7 @@ class TestSaveLayout:
 
         cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
         payload = {"windows": [], "browser_tabs": {"chrome": ["https://example.com"], "edge": []}, "browser_exes": {}}
-        with patch("settings_ui.simpledialog.askstring", return_value="  Work  "), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
              patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
              patch("settings_ui.prof.save_profile") as mock_save_profile, \
@@ -111,7 +111,7 @@ class TestSaveLayout:
 
         cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
         payload = {"windows": [], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
              patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
              patch("settings_ui.prof.save_profile") as mock_save_profile, \
@@ -138,7 +138,7 @@ class TestSaveLayout:
 
         cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
         payload = {"windows": [], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
              patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
              patch("settings_ui.prof.save_profile") as mock_save_profile, \
@@ -169,7 +169,7 @@ class TestSaveLayout:
 
         cfg = {"chrome_debug_port": 9222, "edge_debug_port": 9223, "last_profile": None}
         payload = {"windows": [], "browser_tabs": {"chrome": ["https://example.com"], "edge": []}, "browser_exes": {}}
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
              patch("settings_ui.profile_builder.build_profile_payload", return_value=payload), \
              patch("settings_ui.prof.save_profile") as mock_save_profile, \
@@ -288,7 +288,7 @@ class TestSaveSelectedLayout:
         win = self._make_win()
         cfg = {}
         payload = {"windows": [], "browser_tabs": {"chrome": [], "edge": []}, "browser_exes": {}}
-        with patch("settings_ui.simpledialog.askstring", return_value="All"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="All"), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
              patch("settings_ui.profile_builder.build_profile_payload", return_value=payload) as mock_build, \
              patch("settings_ui.prof.save_profile"), \
@@ -308,7 +308,7 @@ class TestSaveSelectedLayout:
         mock_picker = Mock()
         mock_picker.result = {101}
 
-        with patch("settings_ui.simpledialog.askstring", return_value="MyProfile"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="MyProfile"), \
              patch("settings_ui.capture.capture_windows", return_value=windows) as mock_capture, \
              patch("settings_ui.WindowPickerDialog", return_value=mock_picker) as mock_dlg, \
              patch("settings_ui.prof.load_config", return_value=cfg), \
@@ -325,7 +325,7 @@ class TestSaveSelectedLayout:
         import settings_ui
 
         win = self._make_win()
-        with patch("settings_ui.simpledialog.askstring", return_value=None), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value=None), \
              patch("settings_ui.capture.capture_windows") as mock_capture, \
              patch("settings_ui.prof.save_profile") as mock_save_profile:
             win._save_selected_layout()
@@ -341,7 +341,7 @@ class TestSaveSelectedLayout:
         mock_picker = Mock()
         mock_picker.result = None  # user hit Cancel
 
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.capture.capture_windows", return_value=windows), \
              patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
              patch("settings_ui.prof.save_profile") as mock_save_profile:
@@ -362,7 +362,7 @@ class TestSaveSelectedLayout:
         mock_picker = Mock()
         mock_picker.result = {101}  # only Notepad selected
 
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.capture.capture_windows", return_value=windows), \
              patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
@@ -378,7 +378,7 @@ class TestSaveSelectedLayout:
         import settings_ui
 
         win = self._make_win()
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.capture.capture_windows", return_value=[]), \
              patch("settings_ui.messagebox.showinfo") as mock_info, \
              patch("settings_ui.prof.save_profile") as mock_save_profile:
@@ -395,7 +395,7 @@ class TestSaveSelectedLayout:
         mock_picker = Mock()
         mock_picker.result = set()  # all unchecked
 
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.capture.capture_windows", return_value=windows), \
              patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
              patch("settings_ui.messagebox.showerror") as mock_error, \
@@ -419,7 +419,7 @@ class TestSaveSelectedLayout:
         mock_picker = Mock()
         mock_picker.result = {101}
 
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.capture.capture_windows", return_value=windows), \
              patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
@@ -444,7 +444,7 @@ class TestSaveSelectedLayout:
         mock_picker = Mock()
         mock_picker.result = {101}
 
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.capture.capture_windows", return_value=windows), \
              patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
              patch("settings_ui.prof.load_config", return_value=cfg), \
@@ -468,7 +468,7 @@ class TestSaveSelectedLayout:
         mock_picker = Mock()
         mock_picker.result = {101}
 
-        with patch("settings_ui.simpledialog.askstring", return_value="Work"), \
+        with patch.object(settings_ui.SettingsWindow, "_ask_profile_name", return_value="Work"), \
              patch("settings_ui.capture.capture_windows", return_value=windows), \
              patch("settings_ui.WindowPickerDialog", return_value=mock_picker), \
              patch("settings_ui.prof.load_config", return_value=cfg), \

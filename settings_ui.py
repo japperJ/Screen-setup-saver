@@ -501,12 +501,9 @@ class SettingsWindow:
         self._cancel_json_edit()
 
     def _save_layout(self) -> None:
-        name = simpledialog.askstring(
-            "Save layout", "Profile name:", parent=self._win
-        )
-        if not name or not name.strip():
+        name = self._ask_profile_name()
+        if not name:
             return
-        name = name.strip()
 
         try:
             cfg = prof.load_config()
@@ -523,61 +520,12 @@ class SettingsWindow:
             messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
             return
 
-        tab_total = 0
-        browser_tabs = data.get("browser_tabs", {}) if isinstance(data, dict) else {}
-        if isinstance(browser_tabs, dict):
-            for browser_name in ("chrome", "edge"):
-                tabs = browser_tabs.get(browser_name, [])
-                if isinstance(tabs, list):
-                    tab_total += len(tabs)
-
-        cfg["last_profile"] = name
-        config_error: Exception | None = None
-        try:
-            prof.save_config(cfg)
-        except Exception as exc:
-            config_error = exc
-            log.error("Profile '%s' saved, but config update failed: %s", name, exc)
-
-        self._refresh_profiles()
-
-        if config_error is not None:
-            messagebox.showwarning(
-                "Saved with warning",
-                f"Profile '{name}' saved, but updating defaults failed: {config_error}",
-                parent=self._win,
-            )
-            return
-
-        callback_error: Exception | None = None
-        try:
-            self._on_save(cfg)
-        except Exception as exc:
-            callback_error = exc
-            log.error("Profile saved but on_save callback failed: %s", exc)
-
-        if callback_error is not None:
-            messagebox.showwarning(
-                "Saved with warning",
-                f"Profile '{name}' saved, but refresh callback failed: {callback_error}",
-                parent=self._win,
-            )
-        elif tab_total == 0:
-            messagebox.showwarning(
-                "Saved without browser URLs",
-                "No browser tabs captured. Launch browsers in Capture Mode before saving.",
-                parent=self._win,
-            )
-        else:
-            messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
+        self._finalize_save(name, cfg, data)
 
     def _save_selected_layout(self) -> None:
-        name = simpledialog.askstring(
-            "Save layout", "Profile name:", parent=self._win
-        )
-        if not name or not name.strip():
+        name = self._ask_profile_name()
+        if not name:
             return
-        name = name.strip()
 
         windows = capture.capture_windows()
         if not windows:
@@ -615,61 +563,8 @@ class SettingsWindow:
             messagebox.showerror("Error", f"Failed to save: {exc}", parent=self._win)
             return
 
-        tab_total = 0
-        browser_tabs = data.get("browser_tabs", {}) if isinstance(data, dict) else {}
-        if isinstance(browser_tabs, dict):
-            for browser_name in ("chrome", "edge"):
-                tabs = browser_tabs.get(browser_name, [])
-                if isinstance(tabs, list):
-                    tab_total += len(tabs)
+        self._finalize_save(name, cfg, data, check_browser=True)
 
-        cfg["last_profile"] = name
-        config_error: Exception | None = None
-        try:
-            prof.save_config(cfg)
-        except Exception as exc:
-            config_error = exc
-            log.error("Profile '%s' saved, but config update failed: %s", name, exc)
-
-        self._refresh_profiles()
-
-        if config_error is not None:
-            messagebox.showwarning(
-                "Saved with warning",
-                f"Profile '{name}' saved, but updating defaults failed: {config_error}",
-                parent=self._win,
-            )
-            return
-
-        callback_error: Exception | None = None
-        try:
-            self._on_save(cfg)
-        except Exception as exc:
-            callback_error = exc
-            log.error("Profile saved but on_save callback failed: %s", exc)
-
-        if callback_error is not None:
-            messagebox.showwarning(
-                "Saved with warning",
-                f"Profile '{name}' saved, but refresh callback failed: {callback_error}",
-                parent=self._win,
-            )
-        elif tab_total == 0:
-            # Check if any browser windows were selected — if so, warn about missing tabs
-            selected_has_browser = any(
-                os.path.basename(w.get("exe", "")).lower() in ("chrome.exe", "msedge.exe")
-                for w in data.get("windows", [])
-            )
-            if selected_has_browser:
-                messagebox.showwarning(
-                    "Saved without browser URLs",
-                    "No browser tabs captured. Launch browsers in Capture Mode before saving.",
-                    parent=self._win,
-                )
-            else:
-                messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
-        else:
-            messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
 
     def _set_startup_preference(self, enabled: bool) -> None:
         if enabled:
@@ -834,12 +729,136 @@ class SettingsWindow:
             command=self._test_browser_capture,
         ).pack(anchor="w", pady=2)
 
-    def _save_ports(self) -> None:
+    def _ask_profile_name(self, title: str = "Save layout") -> str | None:
+        """Show a wider profile-name dialog. Returns stripped name or None if cancelled."""
+        result: list[str | None] = [None]
+        dlg = tk.Toplevel(self._win)
+        dlg.title(title)
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.transient(self._win)
+
+        ttk.Label(dlg, text="Profile name:").pack(padx=16, pady=(14, 4), anchor="w")
+        entry_var = tk.StringVar()
+        entry = ttk.Entry(dlg, textvariable=entry_var, width=50)
+        entry.pack(padx=16, pady=(0, 12), fill="x")
+        entry.focus_set()
+
+        def _ok(event: object = None) -> None:
+            result[0] = entry_var.get().strip()
+            dlg.destroy()
+
+        def _cancel(event: object = None) -> None:
+            dlg.destroy()
+
+        btn_frame = ttk.Frame(dlg)
+        btn_frame.pack(padx=16, pady=(0, 14), fill="x")
+        ttk.Button(btn_frame, text="OK", command=_ok, width=10).pack(side="left")
+        ttk.Button(btn_frame, text="Cancel", command=_cancel, width=10).pack(side="left", padx=8)
+
+        entry.bind("<Return>", _ok)
+        entry.bind("<Escape>", _cancel)
+        dlg.bind("<Return>", _ok)
+        dlg.bind("<Escape>", _cancel)
+
+        self._win.wait_window(dlg)
+        return result[0] or None
+
+    def _finalize_save(
+        self,
+        name: str,
+        cfg: dict,
+        data: dict,
+        *,
+        check_browser: bool = False,
+    ) -> None:
+        """Count tabs, update config, refresh list, and show result notification."""
+        tab_total = 0
+        browser_tabs = data.get("browser_tabs", {}) if isinstance(data, dict) else {}
+        if isinstance(browser_tabs, dict):
+            for browser_name in ("chrome", "edge"):
+                tabs = browser_tabs.get(browser_name, [])
+                if isinstance(tabs, list):
+                    tab_total += len(tabs)
+
+        cfg["last_profile"] = name
+        config_error: Exception | None = None
         try:
-            chrome_port = int(self._chrome_port_var.get())
-            edge_port   = int(self._edge_port_var.get())
+            prof.save_config(cfg)
+        except Exception as exc:
+            config_error = exc
+            log.error("Profile '%s' saved, but config update failed: %s", name, exc)
+
+        self._refresh_profiles()
+
+        if config_error is not None:
+            messagebox.showwarning(
+                "Saved with warning",
+                f"Profile '{name}' saved, but updating defaults failed: {config_error}",
+                parent=self._win,
+            )
+            return
+
+        callback_error: Exception | None = None
+        try:
+            self._on_save(cfg)
+        except Exception as exc:
+            callback_error = exc
+            log.error("Profile saved but on_save callback failed: %s", exc)
+
+        if callback_error is not None:
+            messagebox.showwarning(
+                "Saved with warning",
+                f"Profile '{name}' saved, but refresh callback failed: {callback_error}",
+                parent=self._win,
+            )
+        elif tab_total == 0:
+            show_browser_warning = True
+            if check_browser:
+                show_browser_warning = any(
+                    os.path.basename(w.get("exe", "")).lower() in ("chrome.exe", "msedge.exe")
+                    for w in data.get("windows", [])
+                )
+            if show_browser_warning:
+                messagebox.showwarning(
+                    "Saved without browser URLs",
+                    "No browser tabs captured. Launch browsers in Capture Mode before saving.",
+                    parent=self._win,
+                )
+            else:
+                messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
+        else:
+            messagebox.showinfo("Saved", f"Profile '{name}' saved.", parent=self._win)
+
+    def _launch_browser(self, browser_name: str, port_var: tk.StringVar) -> None:
+        """Launch a browser in CDP capture mode on the configured port."""
+        port = self._parse_port(port_var.get())
+        if port is None:
+            return
+        try:
+            browser_runtime.launch_browser_capture_mode(browser_name, port, "127.0.0.1")
+        except Exception as exc:
+            log.error("Failed to launch %s capture mode: %s", browser_name.title(), exc)
+            messagebox.showerror(
+                "Error", f"Failed to launch {browser_name.title()}: {exc}", parent=self._win
+            )
+
+    def _parse_port(self, raw: str) -> int | None:
+        """Parse and validate a port number string. Returns the int or None (shows warning)."""
+        try:
+            port = int(raw)
         except ValueError:
             messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
+            return None
+        if not (1 <= port <= 65535):
+            messagebox.showwarning("Invalid", "Port must be between 1 and 65535.", parent=self._win)
+            return None
+        return port
+
+    def _save_ports(self) -> None:
+        chrome_port = self._parse_port(self._chrome_port_var.get())
+        edge_port   = self._parse_port(self._edge_port_var.get())
+        if chrome_port is None or edge_port is None:
             return
         cfg = prof.load_config()
         cfg["chrome_debug_port"] = chrome_port
@@ -848,35 +867,15 @@ class SettingsWindow:
         messagebox.showinfo("Saved", "Debug ports saved.", parent=self._win)
 
     def _launch_chrome_capture_mode(self) -> None:
-        try:
-            port = int(self._chrome_port_var.get())
-        except ValueError:
-            messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
-            return
-        try:
-            browser_runtime.launch_browser_capture_mode("chrome", port, "127.0.0.1")
-        except Exception as exc:
-            log.error("Failed to launch Chrome capture mode: %s", exc)
-            messagebox.showerror("Error", f"Failed to launch Chrome: {exc}", parent=self._win)
+        self._launch_browser("chrome", self._chrome_port_var)
 
     def _launch_edge_capture_mode(self) -> None:
-        try:
-            port = int(self._edge_port_var.get())
-        except ValueError:
-            messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
-            return
-        try:
-            browser_runtime.launch_browser_capture_mode("edge", port, "127.0.0.1")
-        except Exception as exc:
-            log.error("Failed to launch Edge capture mode: %s", exc)
-            messagebox.showerror("Error", f"Failed to launch Edge: {exc}", parent=self._win)
+        self._launch_browser("edge", self._edge_port_var)
 
     def _test_browser_capture(self) -> None:
-        try:
-            chrome_port = int(self._chrome_port_var.get())
-            edge_port = int(self._edge_port_var.get())
-        except ValueError:
-            messagebox.showwarning("Invalid", "Ports must be integers.", parent=self._win)
+        chrome_port = self._parse_port(self._chrome_port_var.get())
+        edge_port   = self._parse_port(self._edge_port_var.get())
+        if chrome_port is None or edge_port is None:
             return
 
         try:
@@ -906,3 +905,4 @@ class SettingsWindow:
             f"URLs={edge_count}"
         )
         messagebox.showinfo("Browser capture status", summary, parent=self._win)
+

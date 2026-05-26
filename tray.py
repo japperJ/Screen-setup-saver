@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from typing import Callable
 
@@ -27,7 +28,6 @@ def _make_icon_image() -> Image.Image:
 
 def _load_icon_image(assets_dir: str = "assets") -> Image.Image:
     """Try to load assets/icon.png; fall back to generated image."""
-    import os
     path = os.path.join(assets_dir, "icon.png")
     if os.path.isfile(path):
         try:
@@ -67,12 +67,12 @@ class TrayApp:
         """Start the tray icon in a daemon thread."""
         icon_img = _load_icon_image()
         menu = pystray.Menu(
-            pystray.MenuItem("Save layout",    self._save_cb),
-            pystray.MenuItem("Restore layout", self._restore_cb),
+            pystray.MenuItem("Save layout",    lambda icon, item: self._on_save()),
+            pystray.MenuItem("Restore layout", lambda icon, item: self._on_restore()),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Settings",       self._settings_cb),
+            pystray.MenuItem("Settings",       lambda icon, item: self._on_settings()),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Quit",           self._quit_cb),
+            pystray.MenuItem("Quit",           lambda icon, item: self._on_quit()),
         )
         self._icon = pystray.Icon(
             name="ScreenSetupSaver",
@@ -102,20 +102,3 @@ class TrayApp:
             except Exception as exc:
                 log.debug("Notification failed: %s", exc)
 
-    # ── Menu callbacks ────────────────────────────────────────────────────────
-
-    def _save_cb(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
-        log.debug("Tray: Save layout clicked")
-        self._on_save()
-
-    def _restore_cb(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
-        log.debug("Tray: Restore layout clicked")
-        self._on_restore()
-
-    def _settings_cb(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
-        log.debug("Tray: Settings clicked")
-        self._on_settings()
-
-    def _quit_cb(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
-        log.debug("Tray: Quit clicked")
-        self._on_quit()
