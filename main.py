@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import messagebox, simpledialog
 
 import profiles as prof
 import profile_builder
@@ -148,6 +148,8 @@ class App:
     def _do_restore(self, name: str) -> None:
         try:
             profile = prof.load_profile(name)
+            if messagebox.askyesno("Restore Profile", "Minimize all other windows before restoring?"):
+                restore.minimize_other_windows(profile)
             restore.restore_profile(profile)
             self._tray.notify("Restored", f"Layout '{name}' restored")
             log.info("Restored profile %r", name)
