@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import tkinter as tk
@@ -301,6 +302,7 @@ class SettingsWindow:
         right_pane = ttk.Frame(split)
         split.add(left_pane, weight=2)
         split.add(right_pane, weight=3)
+        self._right_pane = right_pane
 
         list_frame = ttk.Frame(left_pane)
         list_frame.pack(fill="both", expand=True)
@@ -343,11 +345,11 @@ class SettingsWindow:
             row=0, column=4, padx=4, sticky="ew"
         )
 
-        details_frame = ttk.LabelFrame(right_pane, text="Selected profile details", padding=8)
-        details_frame.pack(fill="both", expand=True)
-        details_scrollbar = ttk.Scrollbar(details_frame, orient="vertical")
+        self._details_frame = ttk.LabelFrame(right_pane, text="Selected profile details", padding=8)
+        self._details_frame.pack(fill="both", expand=True)
+        details_scrollbar = ttk.Scrollbar(self._details_frame, orient="vertical")
         self._profile_details = tk.Text(
-            details_frame,
+            self._details_frame,
             height=12,
             wrap="word",
             relief="flat",
@@ -359,6 +361,37 @@ class SettingsWindow:
         self._profile_details.pack(side="left", fill="both", expand=True)
         details_scrollbar.pack(side="right", fill="y")
         self._set_profile_details_text("Select a profile to see saved windows and browser URLs.")
+
+        # Initialize editing state
+        self._editing_profile: str | None = None
+
+        # Build edit frame (JSON editor)
+        self._edit_frame = ttk.LabelFrame(right_pane, text="Edit JSON", padding=8)
+        edit_scrollbar = ttk.Scrollbar(self._edit_frame, orient="vertical")
+        self._json_editor = tk.Text(
+            self._edit_frame,
+            height=12,
+            font=("Consolas", 10),
+            wrap="none",
+            relief="flat",
+            borderwidth=0,
+            yscrollcommand=edit_scrollbar.set,
+        )
+        edit_scrollbar.config(command=self._json_editor.yview)
+        self._json_editor.pack(side="left", fill="both", expand=True)
+        edit_scrollbar.pack(side="right", fill="y")
+
+        # Error label for JSON errors
+        self._json_error_label = ttk.Label(
+            self._edit_frame, text="", foreground="red", wraplength=320
+        )
+        self._json_error_label.pack(pady=(8, 0))
+
+        # Save/Cancel button row
+        button_frame = ttk.Frame(self._edit_frame)
+        button_frame.pack(fill="x", pady=(8, 0))
+        ttk.Button(button_frame, text="Save", command=self._save_json_edit).pack(side="left", padx=(0, 4))
+        ttk.Button(button_frame, text="Cancel", command=self._cancel_json_edit).pack(side="left")
 
         self._refresh_profiles()
 
@@ -420,7 +453,34 @@ class SettingsWindow:
         self._show_json_editor(name)
 
     def _show_json_editor(self, name: str) -> None:
-        pass  # implemented in Task 2
+        try:
+            profile = prof.load_profile(name)
+        except Exception as exc:
+            log.error("Failed to load profile for editing %r: %s", name, exc)
+            self._json_error_label.config(text=f"Failed to load profile: {exc}")
+            return
+
+        self._editing_profile = name
+        json_text = json.dumps(profile, indent=2, ensure_ascii=False)
+
+        self._json_editor.config(state="normal")
+        self._json_editor.delete("1.0", "end")
+        self._json_editor.insert("1.0", json_text)
+
+        self._json_error_label.config(text="")
+        self._details_frame.pack_forget()
+        self._edit_frame.pack(fill="both", expand=True)
+        self._profile_list.config(state="disabled")
+
+    def _cancel_json_edit(self) -> None:
+        self._edit_frame.pack_forget()
+        self._details_frame.pack(fill="both", expand=True)
+        self._editing_profile = None
+        self._profile_list.config(state="normal")
+        self._on_profile_select()
+
+    def _save_json_edit(self) -> None:
+        pass  # implemented in Task 3
 
     def _save_layout(self) -> None:
         name = simpledialog.askstring(

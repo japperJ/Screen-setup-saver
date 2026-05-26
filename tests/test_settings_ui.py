@@ -633,3 +633,81 @@ class TestEditJsonUI:
                break
        assert edit_json_call is not None
        assert edit_json_call[1].get("state") == "disabled"
+
+    def test_show_json_editor_populates_editor_and_swaps_panel(self):
+       import settings_ui
+       import json
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+        
+       # Create mock panels
+       details_frame = Mock()
+       edit_frame = Mock()
+       json_editor = Mock()
+       error_label = Mock()
+       profile_list = Mock()
+        
+       win._details_frame = details_frame
+       win._edit_frame = edit_frame
+       win._json_editor = json_editor
+       win._json_error_label = error_label
+       win._profile_list = profile_list
+       win._editing_profile = None
+        
+       # Mock profile data
+       profile_data = {"windows": [{"title": "Test"}], "browser_tabs": {"chrome": []}}
+        
+       with patch("settings_ui.prof.load_profile", return_value=profile_data) as mock_load:
+           win._show_json_editor("TestProfile")
+            
+           # Verify profile was loaded
+           mock_load.assert_called_once_with("TestProfile")
+        
+       # Verify editing_profile was set
+       assert win._editing_profile == "TestProfile"
+        
+       # Verify editor was populated with JSON
+       json_editor.delete.assert_called_once_with("1.0", "end")
+       expected_json = json.dumps(profile_data, indent=2, ensure_ascii=False)
+       json_editor.insert.assert_called_once_with("1.0", expected_json)
+        
+       # Verify error label was cleared
+       error_label.config.assert_called_with(text="")
+        
+       # Verify panels were swapped
+       details_frame.pack_forget.assert_called_once()
+       edit_frame.pack.assert_called_once()
+        
+       # Verify profile list was disabled
+       profile_list.config.assert_called_with(state="disabled")
+
+    def test_cancel_json_edit_restores_details_panel(self):
+       import settings_ui
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+        
+       # Create mock panels
+       details_frame = Mock()
+       edit_frame = Mock()
+       profile_list = Mock()
+        
+       win._details_frame = details_frame
+       win._edit_frame = edit_frame
+       win._profile_list = profile_list
+       win._editing_profile = "TestProfile"
+       win._on_profile_select = Mock()
+        
+       win._cancel_json_edit()
+        
+       # Verify panels were swapped back
+       edit_frame.pack_forget.assert_called_once()
+       details_frame.pack.assert_called_once()
+        
+       # Verify editing_profile was cleared
+       assert win._editing_profile is None
+        
+       # Verify profile list was enabled
+       profile_list.config.assert_called_with(state="normal")
+        
+       # Verify details were restored
+       win._on_profile_select.assert_called_once()
