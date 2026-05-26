@@ -20,7 +20,7 @@
    'C:\\Users\\jptrs\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\PIL\\_webp.cp313-win_amd64.pyd',
    'EXTENSION'),
   ('ScreenSetupSaver.exe',
-   'C:\\rep\\Screen-setup-saver\\build\\pyinstaller\\ScreenSetupSaver\\ScreenSetupSaver.exe',
+   'C:\\REP\\Screen-setup-saver\\build\\pyinstaller\\ScreenSetupSaver\\ScreenSetupSaver.exe',
    'EXECUTABLE'),
   ('VCRUNTIME140.dll',
    'C:\\Program '
@@ -3931,7 +3931,7 @@
    'Toolkit\\api-ms-win-crt-utility-l1-1-0.dll',
    'BINARY'),
   ('base_library.zip',
-   'C:\\rep\\Screen-setup-saver\\build\\pyinstaller\\ScreenSetupSaver\\base_library.zip',
+   'C:\\REP\\Screen-setup-saver\\build\\pyinstaller\\ScreenSetupSaver\\base_library.zip',
    'DATA'),
   ('charset_normalizer\\md.cp313-win_amd64.pyd',
    'C:\\Users\\jptrs\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\charset_normalizer\\md.cp313-win_amd64.pyd',

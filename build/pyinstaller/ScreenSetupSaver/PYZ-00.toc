@@ -1,4 +1,4 @@
-('C:\\rep\\Screen-setup-saver\\build\\pyinstaller\\ScreenSetupSaver\\PYZ-00.pyz',
+('C:\\REP\\Screen-setup-saver\\build\\pyinstaller\\ScreenSetupSaver\\PYZ-00.pyz',
  [('PIL',
    'C:\\Users\\jptrs\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\PIL\\__init__.py',
    'PYMODULE'),
@@ -446,9 +446,9 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\bisect.py',
    'PYMODULE'),
-  ('browser', 'C:\\rep\\Screen-setup-saver\\browser.py', 'PYMODULE'),
+  ('browser', 'C:\\REP\\Screen-setup-saver\\browser.py', 'PYMODULE'),
   ('browser_runtime',
-   'C:\\rep\\Screen-setup-saver\\browser_runtime.py',
+   'C:\\REP\\Screen-setup-saver\\browser_runtime.py',
    'PYMODULE'),
   ('bz2',
    'C:\\Program '
@@ -458,7 +458,7 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\calendar.py',
    'PYMODULE'),
-  ('capture', 'C:\\rep\\Screen-setup-saver\\capture.py', 'PYMODULE'),
+  ('capture', 'C:\\REP\\Screen-setup-saver\\capture.py', 'PYMODULE'),
   ('charset_normalizer',
    'C:\\Users\\jptrs\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\charset_normalizer\\__init__.py',
    'PYMODULE'),
@@ -719,7 +719,7 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\hmac.py',
    'PYMODULE'),
-  ('hotkeys', 'C:\\rep\\Screen-setup-saver\\hotkeys.py', 'PYMODULE'),
+  ('hotkeys', 'C:\\REP\\Screen-setup-saver\\hotkeys.py', 'PYMODULE'),
   ('html',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\html\\__init__.py',
@@ -1458,9 +1458,9 @@
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\pprint.py',
    'PYMODULE'),
   ('profile_builder',
-   'C:\\rep\\Screen-setup-saver\\profile_builder.py',
+   'C:\\REP\\Screen-setup-saver\\profile_builder.py',
    'PYMODULE'),
-  ('profiles', 'C:\\rep\\Screen-setup-saver\\profiles.py', 'PYMODULE'),
+  ('profiles', 'C:\\REP\\Screen-setup-saver\\profiles.py', 'PYMODULE'),
   ('psutil',
    'C:\\Users\\jptrs\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\psutil\\__init__.py',
    'PYMODULE'),
@@ -1655,7 +1655,7 @@
   ('readline',
    'C:\\Users\\jptrs\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\readline.py',
    'PYMODULE'),
-  ('restore', 'C:\\rep\\Screen-setup-saver\\restore.py', 'PYMODULE'),
+  ('restore', 'C:\\REP\\Screen-setup-saver\\restore.py', 'PYMODULE'),
   ('rlcompleter',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\rlcompleter.py',
@@ -1672,7 +1672,7 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\selectors.py',
    'PYMODULE'),
-  ('settings_ui', 'C:\\rep\\Screen-setup-saver\\settings_ui.py', 'PYMODULE'),
+  ('settings_ui', 'C:\\REP\\Screen-setup-saver\\settings_ui.py', 'PYMODULE'),
   ('shlex',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\shlex.py',
@@ -1704,7 +1704,7 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\ssl.py',
    'PYMODULE'),
-  ('startup', 'C:\\rep\\Screen-setup-saver\\startup.py', 'PYMODULE'),
+  ('startup', 'C:\\REP\\Screen-setup-saver\\startup.py', 'PYMODULE'),
   ('statistics',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\statistics.py',
@@ -1777,7 +1777,7 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\tracemalloc.py',
    'PYMODULE'),
-  ('tray', 'C:\\rep\\Screen-setup-saver\\tray.py', 'PYMODULE'),
+  ('tray', 'C:\\REP\\Screen-setup-saver\\tray.py', 'PYMODULE'),
   ('tty',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\tty.py',
@@ -1853,6 +1853,7 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\urllib\\response.py',
    'PYMODULE'),
+  ('version', 'C:\\REP\\Screen-setup-saver\\version.py', 'PYMODULE'),
   ('webbrowser',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\\Lib\\webbrowser.py',

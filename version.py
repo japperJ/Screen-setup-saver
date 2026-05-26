@@ -1,2 +1,1 @@
-"""App version — overwritten by build.ps1 at build time."""
-__version__ = "dev"
+__version__ = '1.0.19'

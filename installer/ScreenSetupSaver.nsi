@@ -42,9 +42,9 @@ Unicode True
 Section "Screen Setup Saver (required)" SecMain
   SectionIn RO
 
-  ; Stop the app if it is already running so the EXE is not locked during install
-  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXE_NAME}"'
-  Sleep 2000
+  ; Stop the app if it is already running so the EXE is not locked during install.
+  ; Kill the process then poll up to 15 s for it to fully exit (no PS variables to avoid NSIS $ conflicts).
+  ExecWait 'powershell.exe -WindowStyle Hidden -Command "Stop-Process -Name ScreenSetupSaver -Force -ErrorAction SilentlyContinue; 1..15 | ForEach-Object { if (Get-Process -Name ScreenSetupSaver -ErrorAction SilentlyContinue) { Start-Sleep 1 } }"'
 
   SetOutPath "$INSTDIR"
   File /r "${APP_DIST_DIR}\*"

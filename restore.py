@@ -18,7 +18,7 @@ import win32process
 log = logging.getLogger(__name__)
 
 # ── Windows API constants (hardcoded values, immune to test mocking) ──
-_GWL_EXSTYLE = 0xFFFFFFEC  # GWL_EXSTYLE
+_GWL_EXSTYLE = -20          # GWL_EXSTYLE (signed; 0xFFFFFFEC would overflow C long)
 _WS_EX_TOOLWINDOW = 0x00000080  # WS_EX_TOOLWINDOW
 
 _POLL_INTERVAL       = 0.25  # seconds between window-search retries
