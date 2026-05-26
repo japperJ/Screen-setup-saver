@@ -487,7 +487,22 @@ class SettingsWindow:
         self._on_profile_select()
 
     def _save_json_edit(self) -> None:
-        pass  # implemented in Task 3
+        """Save the edited JSON profile."""
+        text = self._json_editor.get("1.0", "end-1c")
+        
+        try:
+            parsed_data = json.loads(text)
+        except json.JSONDecodeError as e:
+            self._json_error_label.config(text=f"JSON Parse Error: {str(e)}")
+            return
+        
+        try:
+            self._prof_manager.save_profile(self._editing_profile, parsed_data)
+        except Exception as e:
+            self._json_error_label.config(text=f"Save Error: {str(e)}")
+            return
+        
+        self._cancel_json_edit()
 
     def _save_layout(self) -> None:
         name = simpledialog.askstring(

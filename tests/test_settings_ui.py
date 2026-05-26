@@ -784,3 +784,62 @@ class TestEditJsonUI:
        # (it should remain its previous value, or be set to None)
        # The key is: _editing_profile should NOT be set to "FailProfile"
        assert win._editing_profile != "FailProfile"
+
+    def test_save_json_edit_valid_saves_profile_and_closes_editor(self):
+       import settings_ui
+       import json
+
+       # Setup
+       mock_prof_manager = Mock()
+       mock_prof_manager.list_profiles.return_value = [("profile1", "2024-01-01")]
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._prof_manager = mock_prof_manager
+       win._json_editor = Mock()
+       win._json_error_label = Mock()
+       win._editing_profile = "profile1"
+       win._cancel_json_edit = Mock()
+
+       # Valid JSON payload
+       valid_data = {"windows": [{"title": "Test", "exe": "test.exe"}], "browser_tabs": {"chrome": []}}
+       valid_json_str = json.dumps(valid_data)
+       win._json_editor.get.return_value = valid_json_str
+
+       # Action
+       win._save_json_edit()
+
+       # Assert
+       mock_prof_manager.save_profile.assert_called_once_with("profile1", valid_data)
+       win._cancel_json_edit.assert_called_once()
+       # Error label should not be set on success (or should be cleared)
+       win._json_error_label.config.assert_not_called()
+
+    def test_save_json_edit_invalid_json_shows_error(self):
+       import settings_ui
+
+       # Setup
+       mock_prof_manager = Mock()
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._prof_manager = mock_prof_manager
+       win._json_editor = Mock()
+       win._json_error_label = Mock()
+       win._editing_profile = "profile1"
+       win._cancel_json_edit = Mock()
+
+       # Invalid JSON
+       invalid_json_str = "{invalid}"
+       win._json_editor.get.return_value = invalid_json_str
+
+       # Action
+       win._save_json_edit()
+
+       # Assert
+       win._json_error_label.config.assert_called_once()
+       error_call = win._json_error_label.config.call_args
+       error_text = error_call[1].get("text", "")
+       assert "JSON Parse Error:" in error_text
+       mock_prof_manager.save_profile.assert_not_called()
+       win._cancel_json_edit.assert_not_called()
+       # editing_profile should still be set so user can retry
+       assert win._editing_profile == "profile1"
