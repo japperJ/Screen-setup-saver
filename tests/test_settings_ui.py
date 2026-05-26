@@ -652,6 +652,7 @@ class TestEditJsonUI:
        win._json_editor = json_editor
        win._json_error_label = error_label
        win._profile_list = profile_list
+       win._json_btn_frame = Mock()
        win._editing_profile = None
         
        # Mock profile data
@@ -694,6 +695,7 @@ class TestEditJsonUI:
        win._details_frame = details_frame
        win._edit_frame = edit_frame
        win._profile_list = profile_list
+       win._json_btn_frame = Mock()
        win._editing_profile = "TestProfile"
        win._on_profile_select = Mock()
         
@@ -729,6 +731,7 @@ class TestEditJsonUI:
        win._json_editor = json_editor
        win._json_error_label = error_label
        win._profile_list = profile_list
+       win._json_btn_frame = Mock()
        win._editing_profile = None
          
        # Mock load_profile to raise an exception
@@ -773,6 +776,7 @@ class TestEditJsonUI:
        win._json_editor = json_editor
        win._json_error_label = error_label
        win._profile_list = profile_list
+       win._json_btn_frame = Mock()
        win._editing_profile = "PreviousProfile"
          
        # Mock load_profile to raise an exception

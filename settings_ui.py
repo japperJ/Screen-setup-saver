@@ -383,11 +383,17 @@ class SettingsWindow:
         )
         self._json_error_label.pack(pady=(8, 0))
 
-        # Save/Cancel button row
-        button_frame = ttk.Frame(self._edit_frame)
-        button_frame.pack(fill="x", pady=(8, 0))
-        ttk.Button(button_frame, text="Save", command=self._save_json_edit).pack(side="left", padx=(0, 4))
-        ttk.Button(button_frame, text="Cancel", command=self._cancel_json_edit).pack(side="left")
+        # Save/Cancel buttons — bottom of right pane, visible only while editing JSON
+        self._json_btn_frame = ttk.Frame(right_pane)
+        for col in range(2):
+            self._json_btn_frame.columnconfigure(col, weight=1)
+        ttk.Button(self._json_btn_frame, text="Save JSON", command=self._save_json_edit).grid(
+            row=0, column=0, padx=4, sticky="ew"
+        )
+        ttk.Button(self._json_btn_frame, text="Cancel", command=self._cancel_json_edit).grid(
+            row=0, column=1, padx=4, sticky="ew"
+        )
+        # hidden until JSON editor is opened
 
         self._refresh_profiles()
 
@@ -459,6 +465,7 @@ class SettingsWindow:
             self._json_error_label.config(text=f"Failed to load profile: {exc}")
             self._details_frame.pack_forget()
             self._edit_frame.pack(fill="both", expand=True)
+            self._json_btn_frame.pack(fill="x", pady=(6, 4))
             self._profile_list.config(state="disabled")
             # Do NOT set self._editing_profile so user can't save
             return
@@ -473,10 +480,12 @@ class SettingsWindow:
         self._json_error_label.config(text="")
         self._details_frame.pack_forget()
         self._edit_frame.pack(fill="both", expand=True)
+        self._json_btn_frame.pack(fill="x", pady=(6, 4))
         self._profile_list.config(state="disabled")
 
     def _cancel_json_edit(self) -> None:
         self._edit_frame.pack_forget()
+        self._json_btn_frame.pack_forget()
         self._details_frame.pack(fill="both", expand=True)
         self._editing_profile = None
         self._profile_list.config(state="normal")
