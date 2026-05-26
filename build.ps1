@@ -41,6 +41,10 @@ if (Test-Path $iconPath) {
 }
 
 $pyinstallerArgs += "main.py"
+
+# Write version.py so PyInstaller bundles it and the running app can display it
+Set-Content -Path (Join-Path $repoRoot "version.py") -Value "__version__ = '$Version'"
+
 python @pyinstallerArgs
 
 $candidateExePaths = @(

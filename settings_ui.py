@@ -15,6 +15,11 @@ import profiles as prof
 import profile_builder
 import startup
 
+try:
+    from version import __version__
+except ImportError:
+    __version__ = "dev"
+
 log = logging.getLogger(__name__)
 
 
@@ -226,7 +231,7 @@ class SettingsWindow:
 
     def _build(self) -> None:
         win = tk.Toplevel(self._root)
-        win.title("Screen Setup Saver — Settings")
+        win.title(f"Screen Setup Saver — Settings — v{__version__}")
         win.geometry("620x500")
         win.minsize(620, 500)
         win.protocol("WM_DELETE_WINDOW", self.hide)
