@@ -326,7 +326,7 @@ class SettingsWindow:
 
         btn_frame = ttk.Frame(left_pane)
         btn_frame.pack(fill="x", pady=(10, 6))
-        for col in range(5):
+        for col in range(2):
             btn_frame.columnconfigure(col, weight=1)
 
         ttk.Button(btn_frame, text="Save all", command=self._save_layout).grid(
@@ -334,15 +334,6 @@ class SettingsWindow:
         )
         ttk.Button(btn_frame, text="Save selected…", command=self._save_selected_layout).grid(
             row=0, column=1, padx=4, sticky="ew"
-        )
-        ttk.Button(btn_frame, text="Restore", command=self._restore_selected).grid(
-            row=0, column=2, padx=4, sticky="ew"
-        )
-        ttk.Button(btn_frame, text="Rename", command=self._rename_selected).grid(
-            row=0, column=3, padx=4, sticky="ew"
-        )
-        ttk.Button(btn_frame, text="Delete", command=self._delete_selected).grid(
-            row=0, column=4, padx=4, sticky="ew"
         )
 
         self._details_frame = ttk.LabelFrame(right_pane, text="Selected profile details", padding=8)

@@ -166,7 +166,7 @@ class App:
     def _hotkey_restore(self) -> None:
         last = self._cfg.get("last_profile")
         if last:
-            self._do_restore(last)
+            self._root.after(0, lambda: self._do_restore(last))
         else:
             log.info("Restore hotkey pressed but no last_profile set")
             self._tray.notify("Info", "No profile saved yet. Use tray → Save layout first.")
