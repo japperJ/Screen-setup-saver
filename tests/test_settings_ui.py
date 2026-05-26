@@ -571,3 +571,65 @@ class TestEditJsonUI:
        win._edit_json_selected()
 
        win._show_json_editor.assert_not_called()
+
+    def test_on_profile_right_click_selects_row_and_posts_menu(self):
+       import settings_ui
+        
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._win = Mock()
+       win._profile_list = Mock()
+       win._profile_list.identify_row = Mock(return_value="item1")
+       win._profile_list.selection_set = Mock()
+       # Mock selection to return a tuple so sel[0] works
+       win._profile_list.selection = Mock(return_value=("item1",))
+       # Mock item to return values tuple directly
+       win._profile_list.item = Mock(return_value=("TestProfile",))
+        
+       event = Mock()
+       event.y = 50
+       event.x_root = 100
+       event.y_root = 200
+        
+       with patch("settings_ui.tk.Menu") as mock_menu_class:
+           mock_menu = Mock()
+           mock_menu_class.return_value = mock_menu
+           win._on_profile_right_click(event)
+        
+       # Verify row was identified and selected
+       win._profile_list.identify_row.assert_called_once_with(50)
+       win._profile_list.selection_set.assert_called_once_with("item1")
+       # Verify menu was posted with correct coordinates
+       mock_menu.tk_popup.assert_called_once_with(100, 200)
+       # Verify grab_release was called
+       mock_menu.grab_release.assert_called_once()
+
+    def test_on_profile_right_click_disables_edit_json_when_no_selection(self):
+       import settings_ui
+        
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+       win._win = Mock()
+       win._profile_list = Mock()
+       # When no selection, return empty tuple
+       win._profile_list.selection = Mock(return_value=())
+       win._profile_list.item = Mock(return_value=())
+       win._profile_list.identify_row = Mock(return_value="item1")
+       win._profile_list.selection_set = Mock()
+        
+       event = Mock()
+       event.y = 50
+       event.x_root = 100
+       event.y_root = 200
+        
+       with patch("settings_ui.tk.Menu") as mock_menu_class:
+           mock_menu = Mock()
+           mock_menu_class.return_value = mock_menu
+           win._on_profile_right_click(event)
+        
+       # Verify Edit JSON was added with disabled state
+       edit_json_call = None
+       for call in mock_menu.add_command.call_args_list:
+           if call[1].get("label") == "Edit JSON":
+               edit_json_call = call
+               break
+       assert edit_json_call is not None
+       assert edit_json_call[1].get("state") == "disabled"
