@@ -4,7 +4,7 @@
 
 A Windows system-tray utility that remembers every open window — position, size, app — and even the browser tabs you had open. One hotkey saves your setup, another brings it all back.
 
-short you tube https://youtu.be/Z0tAwvBI3H4 and https://youtu.be/ubE0jPdjscw
+short youtube https://youtu.be/Z0tAwvBI3H4 and https://youtu.be/ubE0jPdjscw
 
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)
