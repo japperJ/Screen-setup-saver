@@ -667,7 +667,7 @@ class TestMinimizeOtherWindows:
             patch("restore.win32gui.GetWindowText", return_value="Window Title"), \
             patch("restore.win32gui.IsIconic") as mock_iconic, \
             patch("restore.win32gui.GetWindowLong", return_value=0), \
-            patch("restore.win32process.GetWindowThreadProcessId", return_value=[(0, 1002)]), \
+            patch("restore.win32process.GetWindowThreadProcessId", return_value=(0, 1002)), \
             patch("restore.win32api.OpenProcess") as mock_open, \
             patch("restore.win32process.GetModuleFileNameEx", return_value=r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"), \
             patch("restore.win32api.CloseHandle"), \
@@ -742,7 +742,7 @@ class TestMinimizeOtherWindows:
             patch("restore.win32gui.GetWindowText", return_value="Window Title"), \
             patch("restore.win32gui.IsIconic", return_value=False), \
             patch("restore.win32gui.GetWindowLong", return_value=0), \
-            patch("restore.win32process.GetWindowThreadProcessId", return_value=[(0, 1002)]), \
+            patch("restore.win32process.GetWindowThreadProcessId", return_value=(0, 1002)), \
             patch("restore.win32api.OpenProcess") as mock_open, \
             patch("restore.win32process.GetModuleFileNameEx", return_value=r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"), \
             patch("restore.win32api.CloseHandle"), \
@@ -982,3 +982,75 @@ class TestRestoreProfilePerWindowUrl:
         mock_tabs.assert_called_once_with(
             {"edge": ["https://bt.dk/"]}, {}, skip_urls={"https://bt.dk/"}
         )
+
+
+class TestRestoreDialogFlow:
+    """Test the restore dialog flow: show minimize confirmation, then restore."""
+
+    def test_restore_shows_dialog_and_minimizes_on_yes(self):
+        """Verify that restore shows dialog and calls minimize when user clicks Yes."""
+        import main
+        from unittest.mock import patch, MagicMock
+        from tkinter import messagebox
+
+        # Create an App instance with mocked tk.Tk and other dependencies
+        with patch("main.prof.load_config", return_value={}), \
+             patch("main.TrayApp"), \
+             patch("main.tk.Tk") as mock_tk_constructor:
+            
+            mock_root = MagicMock()
+            mock_tk_constructor.return_value = mock_root
+            
+            app = main.App()
+
+        profile_name = "TestProfile"
+        profile_data = {
+            "windows": [{"exe": r"C:\Windows\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}],
+            "browser_tabs": {}
+        }
+
+        with patch("main.prof.load_profile", return_value=profile_data), \
+             patch("tkinter.messagebox.askyesno", return_value=True) as mock_dialog, \
+             patch("main.restore.minimize_other_windows") as mock_minimize, \
+             patch("main.restore.restore_profile") as mock_restore, \
+             patch("main.log"):
+            
+            app._do_restore(profile_name)
+            
+            mock_dialog.assert_called_once()
+            mock_minimize.assert_called_once_with(profile_data)
+            mock_restore.assert_called_once_with(profile_data)
+
+    def test_restore_shows_dialog_skips_minimize_on_no(self):
+        """Verify that restore skips minimize when user clicks No."""
+        import main
+        from unittest.mock import patch, MagicMock
+        from tkinter import messagebox
+
+        # Create an App instance with mocked tk.Tk and other dependencies
+        with patch("main.prof.load_config", return_value={}), \
+             patch("main.TrayApp"), \
+             patch("main.tk.Tk") as mock_tk_constructor:
+            
+            mock_root = MagicMock()
+            mock_tk_constructor.return_value = mock_root
+            
+            app = main.App()
+
+        profile_name = "TestProfile"
+        profile_data = {
+            "windows": [{"exe": r"C:\Windows\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}],
+            "browser_tabs": {}
+        }
+
+        with patch("main.prof.load_profile", return_value=profile_data), \
+             patch("tkinter.messagebox.askyesno", return_value=False) as mock_dialog, \
+             patch("main.restore.minimize_other_windows") as mock_minimize, \
+             patch("main.restore.restore_profile") as mock_restore, \
+             patch("main.log"):
+            
+            app._do_restore(profile_name)
+            
+            mock_dialog.assert_called_once()
+            mock_minimize.assert_not_called()
+            mock_restore.assert_called_once_with(profile_data)
