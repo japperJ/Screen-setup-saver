@@ -597,6 +597,211 @@ class TestRestoreBrowserTabsSkipUrls:
         mock_popen.assert_not_called()
 
 
+class TestMinimizeOtherWindows:
+    def test_minimize_other_windows_minimizes_non_profile_windows(self):
+        """Verify that non-profile windows are minimized, profile windows are skipped."""
+        import restore
+        from unittest.mock import Mock, patch
+        
+        profile = {
+           "windows": [
+               {"exe": r"C:\Windows\System32\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}
+           ],
+           "browser_tabs": {}
+        }
+        
+        notepad_hwnd = 1001
+        edge_hwnd = 1002
+        
+        with patch("restore.win32gui.EnumWindows") as mock_enum, \
+            patch("restore.win32gui.IsIconic", return_value=False), \
+            patch("restore.win32gui.GetWindowLong", return_value=0), \
+            patch("restore.win32process.GetWindowThreadProcessId") as mock_get_pid, \
+            patch("restore.win32api.OpenProcess") as mock_open, \
+            patch("restore.win32process.GetModuleFileNameEx") as mock_get_exe, \
+            patch("restore.win32api.CloseHandle"), \
+            patch("restore.win32gui.ShowWindow") as mock_show_window, \
+            patch("restore.log"):
+            
+           def enum_callback(callback, _):
+               callback(notepad_hwnd, None)
+               callback(edge_hwnd, None)
+               return True
+           mock_enum.side_effect = enum_callback
+            
+           mock_get_pid.side_effect = [(0, 1001), (0, 1002)]
+            
+           mock_handle = Mock()
+           mock_open.return_value = mock_handle
+            
+           mock_get_exe.side_effect = [
+               r"C:\Windows\System32\notepad.exe",
+               r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+           ]
+            
+           restore.minimize_other_windows(profile)
+            
+           mock_show_window.assert_called_once_with(edge_hwnd, restore.win32con.SW_MINIMIZE)
+
+    def test_minimize_other_windows_skips_already_minimized(self):
+        """Verify that windows already minimized (IsIconic=True) are not minimized again."""
+        import restore
+        from unittest.mock import Mock, patch
+        
+        profile = {
+           "windows": [
+               {"exe": r"C:\Windows\System32\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}
+           ],
+           "browser_tabs": {}
+        }
+        
+        edge_hwnd = 1002
+        
+        with patch("restore.win32gui.EnumWindows") as mock_enum, \
+            patch("restore.win32gui.IsIconic") as mock_iconic, \
+            patch("restore.win32gui.GetWindowLong", return_value=0), \
+            patch("restore.win32process.GetWindowThreadProcessId", return_value=(0, 1002)), \
+            patch("restore.win32api.OpenProcess") as mock_open, \
+            patch("restore.win32process.GetModuleFileNameEx", return_value=r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"), \
+            patch("restore.win32api.CloseHandle"), \
+            patch("restore.win32gui.ShowWindow") as mock_show_window, \
+            patch("restore.log"):
+            
+           def enum_callback(callback, _):
+               callback(edge_hwnd, None)
+               return True
+           mock_enum.side_effect = enum_callback
+            
+           mock_iconic.return_value = True
+            
+           mock_handle = Mock()
+           mock_open.return_value = mock_handle
+            
+           restore.minimize_other_windows(profile)
+            
+           mock_show_window.assert_not_called()
+
+    def test_minimize_other_windows_skips_tool_windows(self):
+        """Verify that tool windows (WS_EX_TOOLWINDOW) are skipped."""
+        import restore
+        import win32con
+        from unittest.mock import Mock, patch
+        
+        profile = {
+           "windows": [{"exe": r"C:\Windows\System32\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}],
+           "browser_tabs": {}
+        }
+        
+        tool_hwnd = 2001
+        
+        with patch("restore.win32gui.EnumWindows") as mock_enum, \
+            patch("restore.win32gui.IsIconic", return_value=False), \
+            patch("restore.win32gui.GetWindowLong") as mock_get_long, \
+            patch("restore.win32gui.ShowWindow") as mock_show_window, \
+            patch("restore.log"):
+            
+           def enum_callback(callback, _):
+               callback(tool_hwnd, None)
+               return True
+           mock_enum.side_effect = enum_callback
+            
+           mock_get_long.return_value = win32con.WS_EX_TOOLWINDOW
+            
+           restore.minimize_other_windows(profile)
+            
+           mock_show_window.assert_not_called()
+
+    def test_minimize_other_windows_handles_api_errors(self):
+        """Verify that ShowWindow errors are logged but don't crash the function."""
+        import restore
+        from unittest.mock import Mock, patch
+        
+        profile = {
+           "windows": [{"exe": r"C:\Windows\System32\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}],
+           "browser_tabs": {}
+        }
+        
+        edge_hwnd = 1002
+        
+        with patch("restore.win32gui.EnumWindows") as mock_enum, \
+            patch("restore.win32gui.IsIconic", return_value=False), \
+            patch("restore.win32gui.GetWindowLong", return_value=0), \
+            patch("restore.win32process.GetWindowThreadProcessId", return_value=(0, 1002)), \
+            patch("restore.win32api.OpenProcess") as mock_open, \
+            patch("restore.win32process.GetModuleFileNameEx", return_value=r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"), \
+            patch("restore.win32api.CloseHandle"), \
+            patch("restore.win32gui.ShowWindow") as mock_show, \
+            patch("restore.log") as mock_log:
+            
+           def enum_callback(callback, _):
+               callback(edge_hwnd, None)
+               return True
+           mock_enum.side_effect = enum_callback
+            
+           mock_handle = Mock()
+           mock_open.return_value = mock_handle
+            
+           mock_show.side_effect = OSError("Access denied")
+            
+           restore.minimize_other_windows(profile)
+            
+           assert mock_log.error.called
+           error_msg = mock_log.error.call_args[0][0]
+           assert "Failed to minimize" in error_msg
+
+    def test_minimize_other_windows_ignores_multiple_instances_of_profile_exe(self):
+        """Verify that all windows with profile exe are skipped, even multiple instances."""
+        import restore
+        from unittest.mock import Mock, patch
+        
+        profile = {
+           "windows": [
+               {"exe": r"C:\Windows\System32\notepad.exe", "title": "Note1", "rect": [0, 0, 800, 600], "state": "normal"}
+           ],
+           "browser_tabs": {}
+        }
+        
+        notepad_hwnd1 = 1001
+        notepad_hwnd2 = 1003
+        edge_hwnd = 1002
+        
+        with patch("restore.win32gui.EnumWindows") as mock_enum, \
+            patch("restore.win32gui.IsIconic", return_value=False), \
+            patch("restore.win32gui.GetWindowLong", return_value=0), \
+            patch("restore.win32process.GetWindowThreadProcessId") as mock_get_pid, \
+            patch("restore.win32api.OpenProcess") as mock_open, \
+            patch("restore.win32process.GetModuleFileNameEx") as mock_get_exe, \
+            patch("restore.win32api.CloseHandle"), \
+            patch("restore.win32gui.ShowWindow") as mock_show_window, \
+            patch("restore.log"):
+            
+           def enum_callback(callback, _):
+               callback(notepad_hwnd1, None)
+               callback(edge_hwnd, None)
+               callback(notepad_hwnd2, None)
+               return True
+           mock_enum.side_effect = enum_callback
+            
+           mock_get_pid.side_effect = [(0, 1001), (0, 1002), (0, 1003)]
+            
+           mock_handle = Mock()
+           mock_open.return_value = mock_handle
+            
+           mock_get_exe.side_effect = [
+               r"C:\Windows\System32\notepad.exe",
+               r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+               r"C:\Windows\System32\notepad.exe",
+           ]
+            
+           restore.minimize_other_windows(profile)
+            
+           mock_show_window.assert_called_once_with(edge_hwnd, restore.win32con.SW_MINIMIZE)
+        with patch("restore._resolve_browser_exe", return_value=r"C:\msedge.exe"), \
+             patch("restore.subprocess.Popen") as mock_popen:
+            restore.restore_browser_tabs(tabs, skip_urls={"https://bt.dk/"})
+        mock_popen.assert_not_called()
+
+
 class TestRestoreProfilePerWindowUrl:
     def test_browser_window_with_url_uses_new_window_flag(self):
         """Browser window entries with a 'url' field launch with --new-window."""
