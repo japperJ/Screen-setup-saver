@@ -711,3 +711,76 @@ class TestEditJsonUI:
         
        # Verify details were restored
        win._on_profile_select.assert_called_once()
+
+    def test_show_json_editor_shows_error_on_load_failure(self):
+       import settings_ui
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+         
+       # Create mock panels
+       details_frame = Mock()
+       edit_frame = Mock()
+       json_editor = Mock()
+       error_label = Mock()
+       profile_list = Mock()
+         
+       win._details_frame = details_frame
+       win._edit_frame = edit_frame
+       win._json_editor = json_editor
+       win._json_error_label = error_label
+       win._profile_list = profile_list
+       win._editing_profile = None
+         
+       # Mock load_profile to raise an exception
+       test_exc = ValueError("Corrupted profile file")
+       with patch("settings_ui.prof.load_profile", side_effect=test_exc) as mock_load:
+           win._show_json_editor("BadProfile")
+             
+           # Verify profile was attempted to be loaded
+           mock_load.assert_called_once_with("BadProfile")
+         
+       # Verify error frame was packed (not just error label configured)
+       edit_frame.pack.assert_called_once_with(fill="both", expand=True)
+       details_frame.pack_forget.assert_called_once()
+         
+       # Verify error message was set
+       error_label.config.assert_called_with(text="Failed to load profile: Corrupted profile file")
+         
+       # Verify editor was cleared
+       json_editor.config.assert_called_with(state="normal")
+       json_editor.delete.assert_called_once_with("1.0", "end")
+         
+       # Verify profile list was disabled
+       profile_list.config.assert_called_with(state="disabled")
+         
+       # Verify editing_profile was NOT set (so Save button is ineffective)
+       assert win._editing_profile is None
+
+    def test_show_json_editor_does_not_set_editing_profile_on_error(self):
+       import settings_ui
+
+       win = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+         
+       # Create mock panels
+       details_frame = Mock()
+       edit_frame = Mock()
+       json_editor = Mock()
+       error_label = Mock()
+       profile_list = Mock()
+         
+       win._details_frame = details_frame
+       win._edit_frame = edit_frame
+       win._json_editor = json_editor
+       win._json_error_label = error_label
+       win._profile_list = profile_list
+       win._editing_profile = "PreviousProfile"
+         
+       # Mock load_profile to raise an exception
+       test_exc = IOError("Cannot read profile")
+       with patch("settings_ui.prof.load_profile", side_effect=test_exc):
+           win._show_json_editor("FailProfile")
+         
+       # Verify editing_profile was NOT set or changed
+       # (it should remain its previous value, or be set to None)
+       # The key is: _editing_profile should NOT be set to "FailProfile"
+       assert win._editing_profile != "FailProfile"

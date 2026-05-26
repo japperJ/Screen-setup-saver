@@ -456,8 +456,15 @@ class SettingsWindow:
         try:
             profile = prof.load_profile(name)
         except Exception as exc:
-            log.error("Failed to load profile for editing %r: %s", name, exc)
+            log.error("Cannot open JSON editor for %r: %s", name, exc)
+            # Show error in the editor frame
+            self._json_editor.config(state="normal")
+            self._json_editor.delete("1.0", "end")
             self._json_error_label.config(text=f"Failed to load profile: {exc}")
+            self._details_frame.pack_forget()
+            self._edit_frame.pack(fill="both", expand=True)
+            self._profile_list.config(state="disabled")
+            # Do NOT set self._editing_profile so user can't save
             return
 
         self._editing_profile = name
